@@ -1,26 +1,22 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
   "routes": [
     {
       "src": "/player_api.php",
-      "dest": "/api/player-api.js"
+      "dest": "/api/player-api"
     },
     {
       "src": "/get.php",
-      "dest": "/api/get-playlist.js"
+      "dest": "/api/get-playlist"
     },
     {
       "src": "/refresh-cache",
-      "dest": "/api/refresh-cache.js"
+      "dest": "/api/refresh-cache"
     },
     {
       "src": "/",
-      "dest": "/api/index.js"
+      "dest": "/api/index"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }
 
