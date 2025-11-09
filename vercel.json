@@ -43,6 +43,10 @@
       "dest": "/api/stream-redirect?type=series&path=$1"
     },
     {
+      "src": "/([^/]+)/([^/]+)/([^/]+)",
+      "dest": "/api/stream-redirect?type=live&path=$1/$2/$3"
+    },
+    {
       "src": "/",
       "dest": "/api/index"
     }

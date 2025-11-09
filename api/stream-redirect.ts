@@ -22,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).end();
   }
 
-  const streamType = (req.query.type as string) || '';
+  let streamType = (req.query.type as string) || '';
   const path = (req.query.path as string) || '';
   const fullPath = req.url || '';
 
@@ -30,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Estrai username, password e ID dal path
   // IMPORTANTE: USER e PASS nel path sono le credenziali del PROXY, non quelle Xtream
-  // Formato: /movie/PROXY_USER/PROXY_PASS/ID
+  // Formato: /movie/PROXY_USER/PROXY_PASS/ID oppure /PROXY_USER/PROXY_PASS/ID (senza tipo)
   // Il proxy userà internamente le credenziali Xtream configurate
   
   const pathParts = path.split('/').filter(p => p);
@@ -62,6 +62,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Failed to parse stream path', path, parts: pathParts });
   }
 
+  // Se il tipo non è specificato, prova a determinarlo dinamicamente
+  // Cerca lo stream in tutte le playlist per determinare il tipo
+  if (!streamType || streamType === '') {
+    try {
+      const { parseM3UAsync } = await import('../src/m3u-parser');
+      const { config } = await import('../src/config');
+      
+      // Prova prima con live
+      const liveStreams = await parseM3UAsync(config.playlists.live);
+      const foundInLive = liveStreams.find((s, idx) => {
+        const urlId = s.url.match(/(?:\/movie\/|\/series\/|\/live\/|\/)(?:[^\/]+\/){2}([^\/\.]+)/)?.[1];
+        return urlId === streamId || String(idx + 1) === streamId;
+      });
+      
+      if (foundInLive) {
+        streamType = 'live';
+      } else {
+        // Prova con VOD
+        const vodStreams = await parseM3UAsync(config.playlists.vod);
+        const foundInVod = vodStreams.find((s, idx) => {
+          const urlId = s.url.match(/(?:\/movie\/|\/series\/|\/live\/|\/)(?:[^\/]+\/){2}([^\/\.]+)/)?.[1];
+          return urlId === streamId || String(idx + 1) === streamId;
+        });
+        
+        if (foundInVod) {
+          streamType = 'movie';
+        } else {
+          // Prova con series
+          const seriesStreams = await parseM3UAsync(config.playlists.series);
+          const foundInSeries = seriesStreams.find((s, idx) => {
+            const urlId = s.url.match(/(?:\/movie\/|\/series\/|\/live\/|\/)(?:[^\/]+\/){2}([^\/\.]+)/)?.[1];
+            return urlId === streamId || String(idx + 1) === streamId;
+          });
+          
+          if (foundInSeries) {
+            streamType = 'series';
+          } else {
+            // Default a live se non trovato
+            streamType = 'live';
+          }
+        }
+      }
+      
+      logAccess(`Auto-detected stream type: ${streamType} for ID: ${streamId}`);
+    } catch (error) {
+      // Se c'è un errore, usa 'live' come default
+      streamType = 'live';
+      logAccess(`Error detecting stream type, using 'live' as default: ${error}`);
+    }
+  }
+
   // Verifica le credenziali del proxy (non quelle Xtream!)
   const { checkAuth } = await import('../src/config');
   const authResult = checkAuth(proxyUsername, proxyPassword);
@@ -74,7 +125,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // stream.php userà internamente le credenziali Xtream configurate
   const redirectUrl = `/stream.php?username=${encodeURIComponent(proxyUsername)}&password=${encodeURIComponent(proxyPassword)}&type=${streamType}&id=${encodeURIComponent(streamId)}`;
   
-  logAccess(`Redirecting to stream.php (Xtream credentials hidden)`);
+  logAccess(`Redirecting to stream.php (Xtream credentials hidden, type: ${streamType})`);
   return res.redirect(302, redirectUrl);
 }
 
