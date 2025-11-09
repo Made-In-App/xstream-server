@@ -143,9 +143,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         break;
 
       case 'get_vod_info':
-        const vodId = (req.query.vod_id as string) || '';
+        const vodId = (req.query.vod_id as string) || (req.query.id as string) || '';
         if (!vodId) {
-          return res.status(400).json({ error: 'vod_id parameter required' });
+          return res.status(400).json({ error: 'vod_id or id parameter required' });
         }
         response = await getVODInfo(vodId);
         if (!response) {

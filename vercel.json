@@ -31,6 +31,18 @@
       "dest": "/api/stream"
     },
     {
+      "src": "/live/(.*)",
+      "dest": "/api/stream-redirect?type=live&path=$1"
+    },
+    {
+      "src": "/movie/(.*)",
+      "dest": "/api/stream-redirect?type=movie&path=$1"
+    },
+    {
+      "src": "/series/(.*)",
+      "dest": "/api/stream-redirect?type=series&path=$1"
+    },
+    {
       "src": "/",
       "dest": "/api/index"
     }
