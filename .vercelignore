@@ -4,4 +4,9 @@ node_modules
 .env.local
 *.log
 playlists/*.m3u
+# Ignora file compilati nella cartella api (Vercel compila automaticamente i .ts)
+api/*.js
+api/*.d.ts
+api/*.js.map
+api/*.d.ts.map
 

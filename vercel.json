@@ -31,14 +31,6 @@
       "dest": "/api/stream"
     },
     {
-      "src": "/auth-debug",
-      "dest": "/api/auth-debug"
-    },
-    {
-      "src": "/test-original-api",
-      "dest": "/api/test-original-api"
-    },
-    {
       "src": "/",
       "dest": "/api/index"
     }
