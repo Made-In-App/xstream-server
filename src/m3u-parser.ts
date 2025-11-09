@@ -48,12 +48,22 @@ export async function parseM3UAsync(filePath: string): Promise<Stream[]> {
     try {
       const { getPlaylistContent } = await import('./playlist-downloader');
       content = await getPlaylistContent(playlistType);
+      // Se il contenuto è vuoto o contiene solo spazi, restituisci array vuoto
+      if (!content || content.trim().length === 0) {
+        console.warn(`Downloaded playlist is empty for type: ${playlistType}`);
+        return [];
+      }
     } catch (error) {
       console.warn(`Could not download playlist from Xtream: ${error}`);
       return [];
     }
   } else {
     console.warn(`Playlist file not found and type unknown: ${fullPath}`);
+    return [];
+  }
+  
+  // Se il contenuto è vuoto dopo il download, restituisci array vuoto
+  if (!content || content.trim().length === 0) {
     return [];
   }
 

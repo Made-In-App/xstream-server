@@ -38,7 +38,7 @@ export async function getLiveStreams(): Promise<LiveStream[]> {
       category_name: stream.groupTitle || 'General',
       custom_sid: '',
       tv_archive: 0,
-      direct_source: stream.url,
+      direct_source: stream.url, // Mantieni l'URL originale dalla playlist
       tv_archive_duration: 0,
     });
   });
