@@ -225,15 +225,19 @@ export function getUserInfo(username: string): UserInfo {
 /**
  * Get Server Info
  * Restituisce le informazioni del server nel formato standard Xtream
+ * Usa l'URL del nostro server Vercel, non quello originale
  */
 export function getServerInfo(): ServerInfo {
   const now = new Date();
   const timestamp_now = Math.floor(now.getTime() / 1000);
   const time_now = now.toISOString().replace('T', ' ').split('.')[0];
   
-  // Estrai URL e porta dalla configurazione
-  const { url } = config.xtream;
-  const urlObj = new URL(url.startsWith('http') ? url : `http://${url}`);
+  // Usa l'URL del nostro server Vercel, non quello originale
+  const serverUrl = process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}` 
+    : (process.env.SERVER_URL || 'https://xstream-server.vercel.app');
+  
+  const urlObj = new URL(serverUrl);
   
   return {
     url: urlObj.hostname,
