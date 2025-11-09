@@ -19,6 +19,10 @@
       "dest": "/api/purge"
     },
     {
+      "src": "/purge/",
+      "dest": "/api/purge"
+    },
+    {
       "src": "/",
       "dest": "/api/index"
     }

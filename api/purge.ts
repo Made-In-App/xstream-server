@@ -4,7 +4,7 @@
  */
 
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { checkAuth, logAccess } from '../src/config';
+import { logAccess } from '../src/config';
 import { purgeCache } from '../src/playlist-downloader';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -19,18 +19,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Get parameters
-  const username = (req.query.username as string) || '';
-  const password = (req.query.password as string) || '';
   const type = (req.query.type as string) || 'all'; // all, live, vod, series
 
-  // Authentication
-  const authResult = checkAuth(username, password);
-  if (!authResult.valid) {
-    logAccess(`Failed cache purge: ${authResult.error || 'Invalid credentials'}`);
-    return res.status(401).json({ error: authResult.error || 'Invalid credentials' });
-  }
-
-  logAccess(`Cache purge: ${username} - Type: ${type}`);
+  // No authentication required for purge endpoint
+  logAccess(`Cache purge requested - Type: ${type}`);
 
   try {
     const results: Record<string, any> = {};
