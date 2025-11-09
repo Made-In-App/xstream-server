@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     # Il deploy su Vercel avviene automaticamente tramite integrazione GitHub
     # Questo workflow è opzionale e richiede VERCEL_TOKEN se vuoi usarlo
-    if: ${{ secrets.VERCEL_TOKEN != '' }}
+    # Se il token non è presente, i passi che lo usano falliranno
     steps:
       - name: Checkout
         uses: actions/checkout@v3
