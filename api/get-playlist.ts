@@ -32,7 +32,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   logAccess(`M3U download: ${username} - Type: ${type}`);
 
   try {
-    const playlist = await generateM3U(type);
+    // Costruisci l'URL della richiesta per dedurre l'URL del proxy
+    const protocol = req.headers['x-forwarded-proto'] || (req.headers['x-forwarded-ssl'] === 'on' ? 'https' : 'http');
+    const host = req.headers['x-forwarded-host'] || req.headers.host || '';
+    const requestUrl = host ? `${protocol}://${host}` : undefined;
+    
+    // Passa le credenziali dell'utente che ha fatto la richiesta
+    const playlist = await generateM3U(type, requestUrl, username, password);
 
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
     res.setHeader('Content-Disposition', `attachment; filename="playlist.m3u"`);

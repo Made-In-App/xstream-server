@@ -68,14 +68,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ error: 'Stream not found' });
     }
 
-    // Costruisci l'URL del server Xtream originale
+    // Costruisci l'URL del server Xtream originale usando SEMPRE le credenziali Xtream configurate
+    // Questo nasconde le credenziali Xtream e permette a più utenti di usare il proxy
     const { url: xtreamUrl, username: xtreamUser, password: xtreamPass } = config.xtream;
     
-    // Se l'URL dello stream è già completo, usalo direttamente
+    // Se l'URL dello stream è già completo, estrai l'ID e ricostruisci l'URL
     // Altrimenti costruisci l'URL usando il server originale
     let streamUrl = targetStream.url;
     
-    // Se l'URL non è completo, costruiscilo usando il server originale
+    // Se l'URL contiene già le credenziali Xtream, sostituiscile con quelle configurate
+    // Altrimenti costruisci l'URL usando il server originale
+    if (streamUrl.startsWith('http')) {
+      try {
+        const urlObj = new URL(streamUrl);
+        // Se l'URL contiene credenziali nel path, sostituiscile
+        const pathMatch = urlObj.pathname.match(/\/(movie|live|series)\/([^\/]+)\/([^\/]+)\/(.+)$/);
+        if (pathMatch) {
+          const [, type, , , id] = pathMatch;
+          // Ricostruisci l'URL con le credenziali Xtream configurate
+          streamUrl = `${xtreamUrl}/${type}/${xtreamUser}/${xtreamPass}/${id}`;
+        }
+      } catch (e) {
+        // Se non è un URL valido, costruiscilo da zero
+      }
+    }
+    
+    // Se l'URL non è ancora completo, costruiscilo usando il server originale
     if (!streamUrl.startsWith('http')) {
       if (streamType === 'live') {
         streamUrl = `${xtreamUrl}/live/${xtreamUser}/${xtreamPass}/${streamId}`;
@@ -86,10 +104,62 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Reindirizza al server originale (302 redirect)
-    // I client Xtream si aspettano un redirect o un proxy
-    logAccess(`Redirecting stream to: ${streamUrl}`);
-    return res.redirect(302, streamUrl);
+    // Fai proxy HTTP vero invece di redirect per nascondere le credenziali Xtream
+    logAccess(`Proxying stream to Xtream server (credentials hidden)`);
+    
+    return new Promise<void>((resolve) => {
+      const isHttps = streamUrl.startsWith('https');
+      const client = isHttps ? https : http;
+      
+      const proxyReq = client.get(streamUrl, {
+        headers: {
+          'User-Agent': req.headers['user-agent'] || 'VLC/3.0.0',
+          'Referer': xtreamUrl,
+        },
+        timeout: 30000,
+      }, (proxyRes) => {
+        // Copia gli header della risposta (eccetto alcuni che devono essere rimossi)
+        const headersToSkip = ['content-encoding', 'transfer-encoding', 'content-length'];
+        Object.keys(proxyRes.headers).forEach(key => {
+          if (!headersToSkip.includes(key.toLowerCase())) {
+            const value = proxyRes.headers[key];
+            if (value) {
+              res.setHeader(key, value);
+            }
+          }
+        });
+        
+        // Imposta il content-length se disponibile
+        if (proxyRes.headers['content-length']) {
+          res.setHeader('Content-Length', proxyRes.headers['content-length']);
+        }
+        
+        res.status(proxyRes.statusCode || 200);
+        
+        // Inoltra il body della risposta
+        proxyRes.pipe(res);
+        
+        proxyRes.on('end', () => {
+          resolve();
+        });
+      });
+      
+      proxyReq.on('error', (error) => {
+        console.error('Proxy error:', error);
+        if (!res.headersSent) {
+          res.status(502).json({ error: 'Proxy error', message: error.message });
+        }
+        resolve();
+      });
+      
+      proxyReq.setTimeout(30000, () => {
+        proxyReq.destroy();
+        if (!res.headersSent) {
+          res.status(504).json({ error: 'Proxy timeout' });
+        }
+        resolve();
+      });
+    });
 
   } catch (error) {
     console.error('Error processing stream request:', error);

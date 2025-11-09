@@ -3,7 +3,11 @@
     "url": "https://fn2ilpirata.rearc.xn--t60b56a",
     "username": "Emmgen2",
     "password": "gJWB28F",
-    "comment": "Credenziali per accedere al server Xtream originale (statiche)"
+    "comment": "Credenziali per accedere al server Xtream originale (statiche) - NON vengono mai esposte al client"
+  },
+  "proxy": {
+    "url": "https://mio-proxy.vercel.app",
+    "comment": "URL base del proxy (se vuoto, viene dedotto dalla richiesta)"
   },
   "auth": {
     "enabled": true,

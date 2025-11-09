@@ -29,10 +29,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   logAccess(`Stream redirect: Type=${streamType}, Path=${path}, FullPath=${fullPath}`);
 
   // Estrai username, password e ID dal path
-  // Formato esempi:
-  // /movie/USERNAME/PASSWORD/ID (semplice)
-  // /movie/USERNAME/PASSWORD/0.domain:port/USERNAME2/PASSWORD2/ID (con dominio intermedio)
-  // /movie/AmicoCaro/AmicoCaro2025/0.xn--t60b56a:80/Emmgen2/gJWB28F/402677
+  // IMPORTANTE: USER e PASS nel path sono le credenziali del PROXY, non quelle Xtream
+  // Formato: /movie/PROXY_USER/PROXY_PASS/ID
+  // Il proxy userà internamente le credenziali Xtream configurate
   
   const pathParts = path.split('/').filter(p => p);
   
@@ -40,8 +39,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Invalid path format' });
   }
 
-  let username = '';
-  let password = '';
+  let proxyUsername = '';
+  let proxyPassword = '';
   let streamId = '';
 
   // L'ultimo elemento è sempre l'ID dello stream
@@ -52,34 +51,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     streamId = streamId.split('.')[0];
   }
 
-  // Cerca username e password: possono essere:
-  // 1. Gli ultimi 2 elementi prima dell'ID (se path semplice)
-  // 2. Gli ultimi 2 elementi prima dell'ID (se c'è un dominio intermedio, usa quelli finali)
-  
-  // Se c'è un dominio intermedio (contiene ":" o "."), usa gli ultimi 2 prima dell'ID
-  // Altrimenti usa i primi 2 del path
-  const hasDomain = pathParts.some(p => p.includes(':') || (p.includes('.') && !/^\d+$/.test(p)));
-  
-  if (hasDomain && pathParts.length >= 5) {
-    // Formato con dominio: /USER1/PASS1/0.domain:port/USER2/PASS2/ID
-    // Usa USER2 e PASS2 (quelli dopo il dominio)
-    username = pathParts[pathParts.length - 3] || '';
-    password = pathParts[pathParts.length - 2] || '';
-  } else {
-    // Formato semplice: /USER/PASS/ID
-    username = pathParts[0] || '';
-    password = pathParts[1] || '';
-  }
+  // Estrai le credenziali del proxy dal path
+  // Formato semplice: /USER/PASS/ID
+  // Se c'è un dominio intermedio, ignoralo e usa sempre i primi 2 elementi come credenziali proxy
+  proxyUsername = pathParts[0] || '';
+  proxyPassword = pathParts[1] || '';
 
-  if (!streamId || !username || !password) {
-    logAccess(`Failed to parse path: ${path}, parts: ${JSON.stringify(pathParts)}, streamId: ${streamId}, username: ${username}, password: ${password ? '***' : ''}`);
+  if (!streamId || !proxyUsername || !proxyPassword) {
+    logAccess(`Failed to parse path: ${path}, parts: ${JSON.stringify(pathParts)}, streamId: ${streamId}, username: ${proxyUsername ? 'provided' : 'missing'}`);
     return res.status(400).json({ error: 'Failed to parse stream path', path, parts: pathParts });
   }
 
-  // Reindirizza a stream.php con i parametri corretti
-  const redirectUrl = `/stream.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&type=${streamType}&id=${streamId}`;
+  // Verifica le credenziali del proxy (non quelle Xtream!)
+  const { checkAuth } = await import('../src/config');
+  const authResult = checkAuth(proxyUsername, proxyPassword);
+  if (!authResult.valid) {
+    logAccess(`Failed stream redirect auth: ${authResult.error || 'Invalid credentials'}`);
+    return res.status(401).json({ error: authResult.error || 'Invalid credentials' });
+  }
+
+  // Reindirizza a stream.php con le credenziali del proxy
+  // stream.php userà internamente le credenziali Xtream configurate
+  const redirectUrl = `/stream.php?username=${encodeURIComponent(proxyUsername)}&password=${encodeURIComponent(proxyPassword)}&type=${streamType}&id=${encodeURIComponent(streamId)}`;
   
-  logAccess(`Redirecting to: ${redirectUrl}`);
+  logAccess(`Redirecting to stream.php (Xtream credentials hidden)`);
   return res.redirect(302, redirectUrl);
 }
 

@@ -31,6 +31,10 @@ export interface Config {
     username: string;
     password: string;
   };
+  // URL del proxy (se non specificato, viene dedotto dalla richiesta)
+  proxy: {
+    url: string; // URL base del proxy (es. https://mio-proxy.vercel.app)
+  };
   // Credenziali per accedere al nostro server (configurabili)
   auth: {
     enabled: boolean;
@@ -90,6 +94,9 @@ function getDefaultConfig(): Config {
       url: process.env.XSTREAM_URL || 'https://fn2ilpirata.rearc.xn--t60b56a',
       username: process.env.XSTREAM_USERNAME || 'Emmgen2',
       password: process.env.XSTREAM_PASSWORD || 'gJWB28F',
+    },
+    proxy: {
+      url: process.env.PROXY_URL || '', // Se vuoto, viene dedotto dalla richiesta
     },
     auth: {
       enabled: true,
@@ -153,6 +160,10 @@ function createExampleConfig(configPath: string): void {
       username: 'Emmgen2',
       password: 'gJWB28F',
       comment: 'Credenziali per accedere al server Xtream originale (statiche)',
+    },
+    proxy: {
+      url: 'https://mio-proxy.vercel.app',
+      comment: 'URL base del proxy (se vuoto, viene dedotto dalla richiesta)',
     },
     auth: {
       enabled: true,
