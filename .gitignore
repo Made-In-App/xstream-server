@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build output
+dist/
+*.js.map
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Vercel
+.vercel
+
+# Playlist files (opzionale - rimuovi se vuoi committare)
+# *.m3u
+
+# Cache directory
+cache/
+*.meta.json
+
+# Playlists directory (opzionale - rimuovi se vuoi committare)
+# playlists/
+
+# Config file (contiene credenziali)
+xtream-config.json
+

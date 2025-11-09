@@ -1,0 +1,32 @@
+{
+  "xtream": {
+    "url": "https://fn2ilpirata.rearc.xn--t60b56a",
+    "username": "Emmgen2",
+    "password": "gJWB28F",
+    "comment": "Credenziali per accedere al server Xtream originale (statiche)"
+  },
+  "auth": {
+    "enabled": true,
+    "users": {
+      "user": "pass",
+      "admin": "admin123",
+      "comment": "Credenziali per accedere al nostro server (configurabili)"
+    }
+  },
+  "cache": {
+    "enabled": true,
+    "ttl": 3600,
+    "directory": "./cache",
+    "comment": "TTL in secondi, directory per cache su file"
+  },
+  "playlists": {
+    "live": "./playlists/xtream_Emmgen2_LIVE.m3u",
+    "vod": "./playlists/xtream_Emmgen2_VOD.m3u",
+    "series": "./playlists/xtream_Emmgen2_SERIES.m3u",
+    "comment": "Path delle playlist (usate come fallback se cache non disponibile)"
+  },
+  "logging": {
+    "enabled": true
+  }
+}
+

@@ -1,0 +1,93 @@
+/**
+ * Vercel Serverless Function - Player API
+ */
+
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import { checkAuth, logAccess } from '../src/config';
+import {
+  getLiveStreams,
+  getVODStreams,
+  getSeries,
+  getLiveCategories,
+  getVODCategories,
+  getSeriesCategories,
+  getUserInfo,
+} from '../src/xtream-api';
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle OPTIONS request
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // Get parameters
+  const username = (req.query.username as string) || '';
+  const password = (req.query.password as string) || '';
+  const action = (req.query.action as string) || '';
+
+  // Authentication
+  if (!username || !password) {
+    logAccess('Failed authentication: missing credentials');
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  if (!checkAuth(username, password)) {
+    logAccess(`Failed authentication attempt: ${username}`);
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  logAccess(`API access: ${username} - Action: ${action}`);
+
+  // Handle actions
+  let response: any;
+
+  try {
+    switch (action) {
+      case 'get_live_streams':
+        response = await getLiveStreams();
+        break;
+
+      case 'get_vod_streams':
+        response = await getVODStreams();
+        break;
+
+      case 'get_series':
+        response = await getSeries();
+        break;
+
+      case 'get_live_categories':
+        response = await getLiveCategories();
+        break;
+
+      case 'get_vod_categories':
+        response = await getVODCategories();
+        break;
+
+      case 'get_series_categories':
+        response = await getSeriesCategories();
+        break;
+
+      case 'get_user_info':
+        response = getUserInfo(username);
+        break;
+
+      case 'get_short_epg':
+        response = [];
+        break;
+
+      default:
+        return res.status(400).json({ error: 'Invalid action' });
+    }
+
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error('Error processing request:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
