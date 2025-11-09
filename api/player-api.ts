@@ -12,6 +12,7 @@ import {
   getVODCategories,
   getSeriesCategories,
   getUserInfo,
+  getServerInfo,
   getShortEPG,
   getEPG,
   getSeriesInfo,
@@ -62,11 +63,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   logAccess(`API access: ${username} - Action: ${action || '(none)'}`);
 
-  // Se non c'è action, restituisci user_info (comportamento standard Xtream)
+  // Se non c'è action, restituisci user_info + server_info (comportamento standard Xtream)
   // Alcuni client chiamano player_api.php senza action per verificare l'autenticazione
   if (!action || action.trim() === '') {
-    logAccess(`No action specified, returning user_info for ${username}`);
-    return res.status(200).json(getUserInfo(username));
+    logAccess(`No action specified, returning user_info + server_info for ${username}`);
+    return res.status(200).json({
+      user_info: getUserInfo(username),
+      server_info: getServerInfo(),
+    });
   }
 
   // Handle actions
@@ -99,7 +103,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         break;
 
       case 'get_user_info':
-        response = getUserInfo(username);
+        // Restituisci user_info + server_info come il server originale
+        response = {
+          user_info: getUserInfo(username),
+          server_info: getServerInfo(),
+        };
         break;
 
       case 'get_short_epg':

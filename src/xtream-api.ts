@@ -13,6 +13,7 @@ import {
   SeriesInfo,
   VODInfo,
   Episode,
+  ServerInfo,
 } from './types';
 
 /**
@@ -189,22 +190,46 @@ export async function getSeriesCategories(): Promise<Category[]> {
  * Restituisce le informazioni utente nel formato standard Xtream
  */
 export function getUserInfo(username: string): UserInfo {
-  // Calcola la data di creazione (formato: YYYY-MM-DD HH:MM:SS)
-  const now = new Date();
-  const created_at = now.toISOString().replace('T', ' ').split('.')[0];
+  const now = Math.floor(Date.now() / 1000); // Timestamp Unix in secondi
   
   return {
     username,
-    password: '***', // Password nascosta per sicurezza
-    message: '', // Messaggio vuoto (alcuni client si aspettano stringa vuota, non "Banned")
+    password: 'gJWB28F', // Password reale (come nel server originale)
+    message: '', // Messaggio vuoto
     auth: 1, // 1 = autenticato, 0 = non autenticato
     status: 'Active', // Active, Disabled, Expired
-    exp_date: '0', // 0 = senza scadenza, timestamp Unix per scadenza
+    exp_date: 1764603837, // Timestamp Unix (numero) - esempio dal server originale
     is_trial: '0', // 0 = no trial, 1 = trial
-    active_cons: '0', // Numero di connessioni attive
-    created_at, // Data di creazione account
-    max_connections: '1', // Numero massimo di connessioni simultanee
-    allowed_output_formats: ['m3u8', 'ts', 'flv', 'mp4'], // Formati supportati
+    active_cons: '1', // Numero di connessioni attive
+    created_at: 1748443081, // Timestamp Unix (numero) - esempio dal server originale
+    max_connections: '2', // Numero massimo di connessioni simultanee
+    allowed_output_formats: ['m3u8', 'ts'], // Formati supportati
+  };
+}
+
+/**
+ * Get Server Info
+ * Restituisce le informazioni del server nel formato standard Xtream
+ */
+export function getServerInfo(): ServerInfo {
+  const now = new Date();
+  const timestamp_now = Math.floor(now.getTime() / 1000);
+  const time_now = now.toISOString().replace('T', ' ').split('.')[0];
+  
+  // Estrai URL e porta dalla configurazione
+  const { url } = config.xtream;
+  const urlObj = new URL(url.startsWith('http') ? url : `http://${url}`);
+  
+  return {
+    url: urlObj.hostname,
+    port: urlObj.port || (urlObj.protocol === 'https:' ? '443' : '80'),
+    https_port: urlObj.protocol === 'https:' ? (urlObj.port || '443') : '',
+    server_protocol: urlObj.protocol.replace(':', ''),
+    rtmp_port: '25462', // Porta RTMP standard
+    timezone: 'Europe/Amsterdam', // Timezone di default
+    timestamp_now,
+    time_now,
+    process: true,
   };
 }
 

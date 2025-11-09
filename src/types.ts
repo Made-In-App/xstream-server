@@ -76,12 +76,24 @@ export interface UserInfo {
   message: string;
   auth: number;
   status: string;
-  exp_date: string;
+  exp_date: string | number; // Timestamp Unix (numero) o "0" come stringa
   is_trial: string;
   active_cons: string;
-  created_at: string;
+  created_at: string | number; // Timestamp Unix (numero) o stringa formato data
   max_connections: string;
   allowed_output_formats: string[];
+}
+
+export interface ServerInfo {
+  url: string;
+  port: string;
+  https_port: string;
+  server_protocol: string;
+  rtmp_port: string;
+  timezone: string;
+  timestamp_now: number;
+  time_now: string;
+  process: boolean;
 }
 
 export interface SeriesInfo extends Series {
