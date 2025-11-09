@@ -127,28 +127,17 @@ function saveCacheMetadata(type: 'live' | 'vod' | 'series', filePath: string, si
 }
 
 /**
- * Check if cache is valid
+ * Check if cache exists (senza TTL, la cache persiste fino al purge manuale)
  */
 function isCacheValid(type: 'live' | 'vod' | 'series'): boolean {
   if (!config.cache.enabled) {
     return false;
   }
 
-  const metadata = loadCacheMetadata(type);
-  if (!metadata) {
-    return false;
-  }
-
-  const now = Date.now();
-  const age = now - metadata.timestamp;
-  const ttl = config.cache.ttl * 1000;
-
-  if (age > ttl) {
-    return false;
-  }
-
-  // Verifica che il file esista ancora
-  if (!fs.existsSync(metadata.filePath)) {
+  const cacheFilePath = getCacheFilePath(type);
+  
+  // Verifica solo che il file esista (non controlla TTL)
+  if (!fs.existsSync(cacheFilePath)) {
     return false;
   }
 
@@ -157,23 +146,24 @@ function isCacheValid(type: 'live' | 'vod' | 'series'): boolean {
 
 /**
  * Get playlist content (from cache or download)
+ * Scarica solo se i file non esistono (cache persiste fino al purge manuale)
  */
 export async function getPlaylistContent(type: 'live' | 'vod' | 'series'): Promise<string> {
   const cacheFilePath = getCacheFilePath(type);
 
-  // Se la cache è valida, usa quella
+  // Se la cache esiste, usa quella (non controlla TTL, persiste fino al purge)
   if (isCacheValid(type)) {
     logAccess(`Using cached ${type} playlist`);
     try {
       return fs.readFileSync(cacheFilePath, 'utf-8');
     } catch (error) {
       logAccess(`Error reading cache for ${type}: ${error}`);
-      // Continua con il download
+      // Continua con il download se errore di lettura
     }
   }
 
-  // Download nuovo
-  logAccess(`Cache expired or missing for ${type}, downloading...`);
+  // Download nuovo solo se i file non esistono
+  logAccess(`Cache missing for ${type}, downloading from Xtream server...`);
   const content = await downloadPlaylist(type);
 
   // Salva in cache
@@ -230,7 +220,8 @@ export function getCacheInfo(type: 'live' | 'vod' | 'series'): {
 
   const now = Date.now();
   const age = now - metadata.timestamp;
-  const valid = age < config.cache.ttl * 1000;
+  // La cache è sempre valida se esiste (non usa più TTL)
+  const valid = exists;
 
   let size: number | null = null;
   try {
@@ -246,5 +237,33 @@ export function getCacheInfo(type: 'live' | 'vod' | 'series'): {
     age: Math.floor(age / 1000), // in seconds
     size,
   };
+}
+
+/**
+ * Purge cache (delete cache files)
+ */
+export async function purgeCache(type: 'live' | 'vod' | 'series'): Promise<boolean> {
+  const cacheFilePath = getCacheFilePath(type);
+  const metaPath = getCacheMetadataPath(type);
+  
+  let purged = false;
+  
+  try {
+    if (fs.existsSync(cacheFilePath)) {
+      fs.unlinkSync(cacheFilePath);
+      purged = true;
+      logAccess(`Purged cache file for ${type}`);
+    }
+    
+    if (fs.existsSync(metaPath)) {
+      fs.unlinkSync(metaPath);
+      logAccess(`Purged cache metadata for ${type}`);
+    }
+  } catch (error) {
+    logAccess(`Error purging cache for ${type}: ${error}`);
+    throw error;
+  }
+  
+  return purged;
 }
 

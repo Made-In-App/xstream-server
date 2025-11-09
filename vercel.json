@@ -15,6 +15,10 @@
       "dest": "/api/refresh-cache"
     },
     {
+      "src": "/purge",
+      "dest": "/api/purge"
+    },
+    {
       "src": "/",
       "dest": "/api/index"
     }
