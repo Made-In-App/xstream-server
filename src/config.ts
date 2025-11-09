@@ -228,7 +228,6 @@ export function checkAuth(username: string, password: string): { valid: boolean;
   
   // Debug: log degli utenti disponibili (solo i nomi, non le password)
   const availableUsers = Object.keys(config.auth.users);
-  logAccess(`Auth attempt: username="${username}", available users: [${availableUsers.join(', ')}]`);
   
   // Verifica le credenziali (sempre richiesta, anche se auth.enabled è false)
   const expectedPassword = config.auth.users[username];
@@ -236,7 +235,7 @@ export function checkAuth(username: string, password: string): { valid: boolean;
   
   if (!isValid) {
     if (!expectedPassword) {
-      logAccess(`Auth failed: User "${username}" not found`);
+      logAccess(`Auth failed: User "${username}" not found. Available users: [${availableUsers.join(', ')}]`);
     } else {
       logAccess(`Auth failed: Invalid password for user "${username}"`);
     }
