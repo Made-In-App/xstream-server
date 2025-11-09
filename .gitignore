@@ -7,6 +7,10 @@ yarn.lock
 dist/
 *.js.map
 
+# Public directory (empty for serverless)
+public/*
+!public/.gitkeep
+
 # Environment
 .env
 .env.local
