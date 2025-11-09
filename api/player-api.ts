@@ -18,6 +18,7 @@ import {
   getSeriesStreams,
   getVODInfo,
 } from '../src/xtream-api';
+import { UserInfo } from '../src/types';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Set CORS headers
@@ -40,22 +41,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!authResult.valid) {
     logAccess(`Failed authentication: ${authResult.error || 'Invalid credentials'}`);
     // I client Xtream si aspettano un formato specifico per gli errori di autenticazione
-    // Alcuni si aspettano un oggetto con "user_info" o un messaggio specifico
-    return res.status(200).json({ 
-      user_info: {
-        username: '',
-        password: '',
-        message: authResult.error || 'Invalid username or password',
-        auth: 0,
-        status: 'Disabled',
-        exp_date: '0',
-        is_trial: '0',
-        active_cons: '0',
-        created_at: '',
-        max_connections: '0',
-        allowed_output_formats: []
-      }
-    });
+    // Restituisci user_info con auth: 0 e status: Disabled
+    const errorUserInfo: UserInfo = {
+      username: '',
+      password: '',
+      message: authResult.error || 'Invalid username or password',
+      auth: 0,
+      status: 'Disabled',
+      exp_date: '0',
+      is_trial: '0',
+      active_cons: '0',
+      created_at: '',
+      max_connections: '0',
+      allowed_output_formats: []
+    };
+    // Alcuni client si aspettano direttamente l'oggetto user_info, altri wrappato
+    // Prova entrambi i formati
+    return res.status(200).json(errorUserInfo);
   }
 
   logAccess(`API access: ${username} - Action: ${action || '(none)'}`);

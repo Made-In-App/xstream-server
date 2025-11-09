@@ -186,20 +186,25 @@ export async function getSeriesCategories(): Promise<Category[]> {
 
 /**
  * Get User Info
+ * Restituisce le informazioni utente nel formato standard Xtream
  */
 export function getUserInfo(username: string): UserInfo {
+  // Calcola la data di creazione (formato: YYYY-MM-DD HH:MM:SS)
+  const now = new Date();
+  const created_at = now.toISOString().replace('T', ' ').split('.')[0];
+  
   return {
     username,
-    password: '***',
-    message: 'Banned',
-    auth: 1,
-    status: 'Active',
-    exp_date: '0',
-    is_trial: '0',
-    active_cons: '0',
-    created_at: new Date().toISOString().replace('T', ' ').split('.')[0],
-    max_connections: '1',
-    allowed_output_formats: ['m3u8', 'ts'],
+    password: '***', // Password nascosta per sicurezza
+    message: '', // Messaggio vuoto (alcuni client si aspettano stringa vuota, non "Banned")
+    auth: 1, // 1 = autenticato, 0 = non autenticato
+    status: 'Active', // Active, Disabled, Expired
+    exp_date: '0', // 0 = senza scadenza, timestamp Unix per scadenza
+    is_trial: '0', // 0 = no trial, 1 = trial
+    active_cons: '0', // Numero di connessioni attive
+    created_at, // Data di creazione account
+    max_connections: '1', // Numero massimo di connessioni simultanee
+    allowed_output_formats: ['m3u8', 'ts', 'flv', 'mp4'], // Formati supportati
   };
 }
 
