@@ -30,19 +30,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).end();
   }
 
-  // Get parameters
-  const username = (req.query.username as string) || '';
-  const password = (req.query.password as string) || '';
-  const action = (req.query.action as string) || '';
+  // Get parameters from query string OR body (support both GET and POST)
+  const username = (req.query.username as string) || (req.body?.username as string) || '';
+  const password = (req.query.password as string) || (req.body?.password as string) || '';
+  const action = (req.query.action as string) || (req.body?.action as string) || '';
 
   // Authentication
   const authResult = checkAuth(username, password);
   if (!authResult.valid) {
     logAccess(`Failed authentication: ${authResult.error || 'Invalid credentials'}`);
-    return res.status(401).json({ error: authResult.error || 'Invalid credentials' });
+    // I client Xtream si aspettano un formato specifico per gli errori di autenticazione
+    // Alcuni si aspettano un oggetto con "user_info" o un messaggio specifico
+    return res.status(200).json({ 
+      user_info: {
+        username: '',
+        password: '',
+        message: authResult.error || 'Invalid username or password',
+        auth: 0,
+        status: 'Disabled',
+        exp_date: '0',
+        is_trial: '0',
+        active_cons: '0',
+        created_at: '',
+        max_connections: '0',
+        allowed_output_formats: []
+      }
+    });
   }
 
-  logAccess(`API access: ${username} - Action: ${action}`);
+  logAccess(`API access: ${username} - Action: ${action || '(none)'}`);
+
+  // Se non c'è action, restituisci user_info (comportamento standard Xtream)
+  if (!action) {
+    return res.status(200).json(getUserInfo(username));
+  }
 
   // Handle actions
   let response: any;

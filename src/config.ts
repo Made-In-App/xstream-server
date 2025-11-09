@@ -219,22 +219,34 @@ try {
 export function checkAuth(username: string, password: string): { valid: boolean; error?: string } {
   // Richiedi sempre username e password
   if (!username || !password) {
+    logAccess(`Auth failed: Missing credentials - username: ${username ? 'provided' : 'missing'}, password: ${password ? 'provided' : 'missing'}`);
     return {
       valid: false,
       error: 'Username and password are required'
     };
   }
   
+  // Debug: log degli utenti disponibili (solo i nomi, non le password)
+  const availableUsers = Object.keys(config.auth.users);
+  logAccess(`Auth attempt: username="${username}", available users: [${availableUsers.join(', ')}]`);
+  
   // Verifica le credenziali (sempre richiesta, anche se auth.enabled è false)
-  const isValid = config.auth.users[username] === password;
+  const expectedPassword = config.auth.users[username];
+  const isValid = expectedPassword === password;
   
   if (!isValid) {
+    if (!expectedPassword) {
+      logAccess(`Auth failed: User "${username}" not found`);
+    } else {
+      logAccess(`Auth failed: Invalid password for user "${username}"`);
+    }
     return {
       valid: false,
       error: 'Invalid username or password'
     };
   }
   
+  logAccess(`Auth successful: User "${username}" authenticated`);
   return { valid: true };
 }
 

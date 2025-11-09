@@ -15,11 +15,21 @@ import * as https from 'https';
 import { parseM3UAsync } from '../src/m3u-parser';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Get parameters
-  const username = (req.query.username as string) || '';
-  const password = (req.query.password as string) || '';
-  const streamType = (req.query.type as string) || ''; // live, movie, series
-  const streamId = (req.query.id as string) || '';
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle OPTIONS request
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // Get parameters from query string OR body (support both GET and POST)
+  const username = (req.query.username as string) || (req.body?.username as string) || '';
+  const password = (req.query.password as string) || (req.body?.password as string) || '';
+  const streamType = (req.query.type as string) || (req.body?.type as string) || ''; // live, movie, series
+  const streamId = (req.query.id as string) || (req.body?.id as string) || '';
 
   // Authentication
   const authResult = checkAuth(username, password);

@@ -7,10 +7,20 @@ import { checkAuth, logAccess } from '../src/config';
 import { generateM3U } from '../src/m3u-generator';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Get parameters
-  const username = (req.query.username as string) || '';
-  const password = (req.query.password as string) || '';
-  const type = ((req.query.type as string) || 'm3u') as 'm3u' | 'm3u_plus';
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle OPTIONS request
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // Get parameters from query string OR body (support both GET and POST)
+  const username = (req.query.username as string) || (req.body?.username as string) || '';
+  const password = (req.query.password as string) || (req.body?.password as string) || '';
+  const type = ((req.query.type as string) || (req.body?.type as string) || 'm3u') as 'm3u' | 'm3u_plus';
 
   // Authentication
   const authResult = checkAuth(username, password);
