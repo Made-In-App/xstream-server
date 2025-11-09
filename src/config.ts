@@ -5,6 +5,25 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Carica variabili d'ambiente da file .env se presente (solo in sviluppo locale)
+// Su Vercel le variabili vengono caricate automaticamente dalla dashboard
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'production') {
+  try {
+    require('dotenv').config({ path: '.env.local' });
+  } catch (e) {
+    // Ignora se dotenv non è disponibile
+  }
+}
+
+// Carica .env.production se presente (per deploy locali)
+if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
+  try {
+    require('dotenv').config({ path: '.env.production' });
+  } catch (e) {
+    // Ignora se dotenv non è disponibile o file non esiste
+  }
+}
+
 export interface Config {
   // Credenziali per accedere al server Xtream originale (statiche)
   xtream: {
@@ -52,8 +71,14 @@ function loadConfig(): Config {
     }
   } else {
     config = getDefaultConfig();
-    // Crea file di configurazione di esempio
-    createExampleConfig(configPath);
+    // Crea file di configurazione di esempio solo se il filesystem è scrivibile
+    // Su Vercel il filesystem è read-only, quindi saltiamo la creazione
+    try {
+      createExampleConfig(configPath);
+    } catch (error) {
+      // Ignora errori di scrittura (filesystem read-only su Vercel)
+      // La configurazione userà i default o le variabili d'ambiente
+    }
   }
   
   return config;
@@ -68,15 +93,42 @@ function getDefaultConfig(): Config {
     },
     auth: {
       enabled: true,
-      users: {
-        user: 'pass',
-        admin: 'admin123',
-      },
+      users: (() => {
+        // Permetti configurazione tramite variabili d'ambiente
+        const users: Record<string, string> = {};
+        
+        // Credenziali da variabili d'ambiente (formato: USER1:PASS1,USER2:PASS2)
+        if (process.env.AUTH_USERS) {
+          process.env.AUTH_USERS.split(',').forEach(pair => {
+            const [user, pass] = pair.split(':');
+            if (user && pass) {
+              users[user.trim()] = pass.trim();
+            }
+          });
+        }
+        
+        // Default se non configurato
+        if (Object.keys(users).length === 0) {
+          users['user'] = process.env.AUTH_PASSWORD || 'pass';
+          if (process.env.AUTH_USERNAME && process.env.AUTH_USERNAME !== 'user') {
+            users[process.env.AUTH_USERNAME] = process.env.AUTH_PASSWORD || 'pass';
+            delete users['user'];
+          }
+        }
+        
+        // Fallback ai default se ancora vuoto
+        if (Object.keys(users).length === 0) {
+          users['user'] = 'pass';
+          users['admin'] = 'admin123';
+        }
+        
+        return users;
+      })(),
     },
     cache: {
       enabled: true,
       ttl: 3600, // 1 hour
-      directory: process.env.CACHE_DIR || './cache',
+      directory: process.env.CACHE_DIR || (process.env.VERCEL ? '/tmp/cache' : './cache'),
     },
     playlists: {
       live: process.env.LIVE_M3U_PATH || './playlists/xtream_Emmgen2_LIVE.m3u',
@@ -90,6 +142,11 @@ function getDefaultConfig(): Config {
 }
 
 function createExampleConfig(configPath: string): void {
+  // Non creare il file su Vercel (filesystem read-only)
+  if (process.env.VERCEL) {
+    return;
+  }
+  
   const exampleConfig = {
     xtream: {
       url: 'https://fn2ilpirata.rearc.xn--t60b56a',
@@ -108,7 +165,7 @@ function createExampleConfig(configPath: string): void {
     cache: {
       enabled: true,
       ttl: 3600,
-      directory: './cache',
+      directory: process.env.VERCEL ? '/tmp/cache' : './cache',
     },
     playlists: {
       live: './playlists/xtream_Emmgen2_LIVE.m3u',
@@ -124,34 +181,61 @@ function createExampleConfig(configPath: string): void {
     fs.writeFileSync(configPath, JSON.stringify(exampleConfig, null, 2));
     console.log(`Created example config file: ${configPath}`);
   } catch (error) {
-    console.warn('Could not create example config file:', error);
+    // Ignora errori di scrittura (filesystem read-only)
+    // La configurazione userà i default o le variabili d'ambiente
   }
 }
 
 export const config: Config = loadConfig();
 
-// Assicura che la directory cache esista
+// Assicura che la directory cache esista (solo se scrivibile)
 if (config.cache.enabled && config.cache.directory) {
-  const cacheDir = path.resolve(config.cache.directory);
-  if (!fs.existsSync(cacheDir)) {
-    fs.mkdirSync(cacheDir, { recursive: true });
+  try {
+    const cacheDir = path.resolve(config.cache.directory);
+    if (!fs.existsSync(cacheDir)) {
+      fs.mkdirSync(cacheDir, { recursive: true });
+    }
+  } catch (error) {
+    // Ignora errori se il filesystem è read-only (su Vercel)
+    console.warn('Could not create cache directory, using in-memory cache only:', error);
   }
 }
 
-// Assicura che la directory playlists esista
-const playlistsDir = path.resolve('./playlists');
-if (!fs.existsSync(playlistsDir)) {
-  fs.mkdirSync(playlistsDir, { recursive: true });
+// Assicura che la directory playlists esista (solo se scrivibile)
+try {
+  const playlistsDir = path.resolve('./playlists');
+  if (!fs.existsSync(playlistsDir)) {
+    fs.mkdirSync(playlistsDir, { recursive: true });
+  }
+} catch (error) {
+  // Ignora errori se il filesystem è read-only (su Vercel)
+  // Le playlist verranno scaricate direttamente dal server Xtream
 }
 
 /**
  * Check if user credentials are valid
+ * Richiede sempre username e password, restituisce errore se mancanti o invalidi
  */
-export function checkAuth(username: string, password: string): boolean {
-  if (!config.auth.enabled) {
-    return true;
+export function checkAuth(username: string, password: string): { valid: boolean; error?: string } {
+  // Richiedi sempre username e password
+  if (!username || !password) {
+    return {
+      valid: false,
+      error: 'Username and password are required'
+    };
   }
-  return config.auth.users[username] === password;
+  
+  // Verifica le credenziali (sempre richiesta, anche se auth.enabled è false)
+  const isValid = config.auth.users[username] === password;
+  
+  if (!isValid) {
+    return {
+      valid: false,
+      error: 'Invalid username or password'
+    };
+  }
+  
+  return { valid: true };
 }
 
 /**

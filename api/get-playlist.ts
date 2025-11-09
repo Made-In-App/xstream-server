@@ -13,14 +13,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const type = ((req.query.type as string) || 'm3u') as 'm3u' | 'm3u_plus';
 
   // Authentication
-  if (!username || !password) {
-    logAccess('Failed M3U access: missing credentials');
-    return res.status(401).send('#EXTM3U - Authentication required');
-  }
-
-  if (!checkAuth(username, password)) {
-    logAccess(`Failed M3U access attempt: ${username}`);
-    return res.status(401).send('#EXTM3U - Invalid credentials');
+  const authResult = checkAuth(username, password);
+  if (!authResult.valid) {
+    logAccess(`Failed M3U access: ${authResult.error || 'Invalid credentials'}`);
+    return res.status(401).send(`#EXTM3U - ${authResult.error || 'Invalid credentials'}`);
   }
 
   logAccess(`M3U download: ${username} - Type: ${type}`);

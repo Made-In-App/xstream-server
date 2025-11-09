@@ -24,14 +24,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const type = (req.query.type as string) || 'all'; // all, live, vod, series
 
   // Authentication
-  if (!username || !password) {
-    logAccess('Failed cache refresh: missing credentials');
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-
-  if (!checkAuth(username, password)) {
-    logAccess(`Failed cache refresh attempt: ${username}`);
-    return res.status(401).json({ error: 'Invalid credentials' });
+  const authResult = checkAuth(username, password);
+  if (!authResult.valid) {
+    logAccess(`Failed cache refresh: ${authResult.error || 'Invalid credentials'}`);
+    return res.status(401).json({ error: authResult.error || 'Invalid credentials' });
   }
 
   logAccess(`Cache refresh: ${username} - Type: ${type}`);

@@ -31,14 +31,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = (req.query.action as string) || '';
 
   // Authentication
-  if (!username || !password) {
-    logAccess('Failed authentication: missing credentials');
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-
-  if (!checkAuth(username, password)) {
-    logAccess(`Failed authentication attempt: ${username}`);
-    return res.status(401).json({ error: 'Invalid credentials' });
+  const authResult = checkAuth(username, password);
+  if (!authResult.valid) {
+    logAccess(`Failed authentication: ${authResult.error || 'Invalid credentials'}`);
+    return res.status(401).json({ error: authResult.error || 'Invalid credentials' });
   }
 
   logAccess(`API access: ${username} - Action: ${action}`);
