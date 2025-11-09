@@ -63,14 +63,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   logAccess(`API access: ${username} - Action: ${action || '(none)'}`);
 
-  // Se non c'è action, restituisci user_info + server_info (comportamento standard Xtream)
-  // Alcuni client chiamano player_api.php senza action per verificare l'autenticazione
+  // Se non c'è action, restituisci solo user_info (alcuni client si aspettano questo formato)
+  // Quando action=get_user_info, restituiamo user_info + server_info
   if (!action || action.trim() === '') {
-    logAccess(`No action specified, returning user_info + server_info for ${username}`);
-    return res.status(200).json({
-      user_info: getUserInfo(username),
-      server_info: getServerInfo(),
-    });
+    logAccess(`No action specified, returning user_info only for ${username}`);
+    return res.status(200).json(getUserInfo(username));
   }
 
   // Handle actions
