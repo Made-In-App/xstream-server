@@ -10,6 +10,9 @@ import {
   Series,
   Category,
   UserInfo,
+  SeriesInfo,
+  VODInfo,
+  Episode,
 } from './types';
 
 /**
@@ -197,6 +200,146 @@ export function getUserInfo(username: string): UserInfo {
     created_at: new Date().toISOString().replace('T', ' ').split('.')[0],
     max_connections: '1',
     allowed_output_formats: ['m3u8', 'ts'],
+  };
+}
+
+/**
+ * Get Short EPG (Electronic Program Guide)
+ * Restituisce EPG semplificato per i canali live
+ */
+export async function getShortEPG(streamId?: string): Promise<any[]> {
+  // Per ora restituisce array vuoto
+  // L'EPG completo è disponibile tramite xmltv.php
+  return [];
+}
+
+/**
+ * Get EPG (Electronic Program Guide)
+ * Restituisce EPG completo per un canale specifico
+ */
+export async function getEPG(streamId: string): Promise<any> {
+  // Per ora restituisce oggetto vuoto
+  // L'EPG completo è disponibile tramite xmltv.php
+  return {};
+}
+
+/**
+ * Get Series Info
+ * Restituisce informazioni dettagliate di una serie e i suoi episodi
+ */
+export async function getSeriesInfo(seriesId: string): Promise<SeriesInfo | null> {
+  const series = await getSeries();
+  const seriesItem = series.find(s => s.series_id === seriesId);
+  
+  if (!seriesItem) {
+    return null;
+  }
+
+  // Cerca tutti gli episodi della serie
+  const allStreams = await parseM3UAsync(config.playlists.series);
+  const episodes: Episode[] = [];
+  
+  allStreams.forEach((stream, idx) => {
+    const name = stream.name;
+    const seriesMatch = name.match(/^(.+?)\s+S(\d+)\s+E(\d+)/i);
+    if (seriesMatch) {
+      const seriesName = seriesMatch[1].trim();
+      if (seriesName === seriesItem.name) {
+        const seasonNum = parseInt(seriesMatch[2], 10);
+        const episodeNum = parseInt(seriesMatch[3], 10);
+        const streamId = extractStreamId(stream.url) || String(idx + 1);
+        const urlParts = stream.url.split('.');
+        const extension = urlParts.length > 1 ? urlParts[urlParts.length - 1] : 'mkv';
+
+        episodes.push({
+          id: streamId,
+          episode_num: String(episodeNum),
+          title: name,
+          container_extension: extension,
+          info: {
+            plot: '',
+            cast: '',
+            director: '',
+            genre: seriesItem.genre,
+            releaseDate: seriesItem.releaseDate,
+            rating: seriesItem.rating,
+            duration_secs: seriesItem.episode_run_time || '0',
+          },
+          added: new Date().toISOString().split('T')[0] + ' ' + new Date().toTimeString().split(' ')[0],
+          season: seasonNum,
+          direct_source: stream.url,
+        });
+      }
+    }
+  });
+
+  // Raggruppa per stagione
+  const seasonsMap = new Map<number, Episode[]>();
+  episodes.forEach(ep => {
+    if (!seasonsMap.has(ep.season)) {
+      seasonsMap.set(ep.season, []);
+    }
+    seasonsMap.get(ep.season)!.push(ep);
+  });
+
+  const seasons = Array.from(seasonsMap.entries()).map(([seasonNum, eps]) => ({
+    air_date: seriesItem.releaseDate,
+    episode_count: eps.length,
+    id: seasonNum,
+    name: `Season ${seasonNum}`,
+    overview: '',
+    season_number: seasonNum,
+    cover: seriesItem.cover,
+    episodes: eps.sort((a, b) => parseInt(a.episode_num, 10) - parseInt(b.episode_num, 10)),
+  }));
+
+  return {
+    ...seriesItem,
+    seasons: seasons.sort((a, b) => a.season_number - b.season_number),
+  };
+}
+
+/**
+ * Get Series Streams
+ * Restituisce tutti gli episodi di una serie
+ */
+export async function getSeriesStreams(seriesId: string): Promise<Episode[]> {
+  const seriesInfo = await getSeriesInfo(seriesId);
+  if (!seriesInfo) {
+    return [];
+  }
+
+  const episodes: Episode[] = [];
+  seriesInfo.seasons.forEach(season => {
+    episodes.push(...season.episodes);
+  });
+
+  return episodes;
+}
+
+/**
+ * Get VOD Info
+ * Restituisce informazioni dettagliate di un film VOD
+ */
+export async function getVODInfo(vodId: string): Promise<VODInfo | null> {
+  const vods = await getVODStreams();
+  const vod = vods.find(v => v.stream_id === vodId);
+  
+  if (!vod) {
+    return null;
+  }
+
+  return {
+    ...vod,
+    info: {
+      plot: '',
+      cast: '',
+      director: '',
+      genre: vod.category_name,
+      releaseDate: vod.added.split(' ')[0],
+      rating: vod.rating,
+      duration_secs: '0',
+    },
   };
 }
 

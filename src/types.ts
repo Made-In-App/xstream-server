@@ -84,3 +84,49 @@ export interface UserInfo {
   allowed_output_formats: string[];
 }
 
+export interface SeriesInfo extends Series {
+  seasons: Season[];
+}
+
+export interface Season {
+  air_date: string;
+  episode_count: number;
+  id: number;
+  name: string;
+  overview: string;
+  season_number: number;
+  cover: string;
+  episodes: Episode[];
+}
+
+export interface Episode {
+  id: string;
+  episode_num: string;
+  title: string;
+  container_extension: string;
+  info: {
+    plot: string;
+    cast: string;
+    director: string;
+    genre: string;
+    releaseDate: string;
+    rating: string;
+    duration_secs: string;
+  };
+  added: string;
+  season: number;
+  direct_source: string;
+}
+
+export interface VODInfo extends VODStream {
+  info: {
+    plot: string;
+    cast: string;
+    director: string;
+    genre: string;
+    releaseDate: string;
+    rating: string;
+    duration_secs: string;
+  };
+}
+

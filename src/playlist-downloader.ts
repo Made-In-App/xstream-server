@@ -18,7 +18,7 @@ interface CacheMetadata {
 /**
  * Download playlist from Xtream server
  */
-async function downloadPlaylist(type: 'live' | 'vod' | 'series'): Promise<string> {
+async function downloadPlaylist(type: 'live' | 'vod' | 'series' | 'epg'): Promise<string> {
   const { url, username, password } = config.xtream;
   
   let endpoint = '';
@@ -31,6 +31,9 @@ async function downloadPlaylist(type: 'live' | 'vod' | 'series'): Promise<string
       break;
     case 'series':
       endpoint = `${url}/get.php?username=${username}&password=${password}&type=m3u_plus&output=mkv`;
+      break;
+    case 'epg':
+      endpoint = `${url}/xmltv.php?username=${username}&password=${password}`;
       break;
   }
 
@@ -76,15 +79,18 @@ async function downloadPlaylist(type: 'live' | 'vod' | 'series'): Promise<string
 /**
  * Get cache file path for a playlist type
  */
-function getCacheFilePath(type: 'live' | 'vod' | 'series'): string {
+function getCacheFilePath(type: 'live' | 'vod' | 'series' | 'epg'): string {
   const cacheDir = path.resolve(config.cache.directory);
+  if (type === 'epg') {
+    return path.join(cacheDir, 'epg.xml');
+  }
   return path.join(cacheDir, `${type}.m3u`);
 }
 
 /**
  * Get cache metadata file path
  */
-function getCacheMetadataPath(type: 'live' | 'vod' | 'series'): string {
+function getCacheMetadataPath(type: 'live' | 'vod' | 'series' | 'epg'): string {
   const cacheDir = path.resolve(config.cache.directory);
   return path.join(cacheDir, `${type}.meta.json`);
 }
@@ -92,7 +98,7 @@ function getCacheMetadataPath(type: 'live' | 'vod' | 'series'): string {
 /**
  * Load cache metadata
  */
-function loadCacheMetadata(type: 'live' | 'vod' | 'series'): CacheMetadata | null {
+function loadCacheMetadata(type: 'live' | 'vod' | 'series' | 'epg'): CacheMetadata | null {
   const metaPath = getCacheMetadataPath(type);
   
   if (!fs.existsSync(metaPath)) {
@@ -111,7 +117,7 @@ function loadCacheMetadata(type: 'live' | 'vod' | 'series'): CacheMetadata | nul
 /**
  * Save cache metadata
  */
-function saveCacheMetadata(type: 'live' | 'vod' | 'series', filePath: string, size: number): void {
+function saveCacheMetadata(type: 'live' | 'vod' | 'series' | 'epg', filePath: string, size: number): void {
   const metaPath = getCacheMetadataPath(type);
   const metadata: CacheMetadata = {
     timestamp: Date.now(),
@@ -129,7 +135,7 @@ function saveCacheMetadata(type: 'live' | 'vod' | 'series', filePath: string, si
 /**
  * Check if cache exists (senza TTL, la cache persiste fino al purge manuale)
  */
-function isCacheValid(type: 'live' | 'vod' | 'series'): boolean {
+function isCacheValid(type: 'live' | 'vod' | 'series' | 'epg'): boolean {
   if (!config.cache.enabled) {
     return false;
   }
@@ -148,7 +154,7 @@ function isCacheValid(type: 'live' | 'vod' | 'series'): boolean {
  * Get playlist content (from cache or download)
  * Scarica solo se i file non esistono (cache persiste fino al purge manuale)
  */
-export async function getPlaylistContent(type: 'live' | 'vod' | 'series'): Promise<string> {
+export async function getPlaylistContent(type: 'live' | 'vod' | 'series' | 'epg'): Promise<string> {
   const cacheFilePath = getCacheFilePath(type);
 
   // Se la cache esiste, usa quella (non controlla TTL, persiste fino al purge)
@@ -181,7 +187,7 @@ export async function getPlaylistContent(type: 'live' | 'vod' | 'series'): Promi
 /**
  * Refresh playlist cache (force download)
  */
-export async function refreshPlaylistCache(type: 'live' | 'vod' | 'series'): Promise<void> {
+export async function refreshPlaylistCache(type: 'live' | 'vod' | 'series' | 'epg'): Promise<void> {
   logAccess(`Force refreshing ${type} playlist cache...`);
   const content = await downloadPlaylist(type);
   const cacheFilePath = getCacheFilePath(type);
@@ -199,7 +205,7 @@ export async function refreshPlaylistCache(type: 'live' | 'vod' | 'series'): Pro
 /**
  * Get cache info
  */
-export function getCacheInfo(type: 'live' | 'vod' | 'series'): {
+export function getCacheInfo(type: 'live' | 'vod' | 'series' | 'epg'): {
   exists: boolean;
   valid: boolean;
   age: number | null;
@@ -242,7 +248,7 @@ export function getCacheInfo(type: 'live' | 'vod' | 'series'): {
 /**
  * Purge cache (delete cache files)
  */
-export async function purgeCache(type: 'live' | 'vod' | 'series'): Promise<boolean> {
+export async function purgeCache(type: 'live' | 'vod' | 'series' | 'epg'): Promise<boolean> {
   const cacheFilePath = getCacheFilePath(type);
   const metaPath = getCacheMetadataPath(type);
   

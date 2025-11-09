@@ -21,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Get parameters
   const username = (req.query.username as string) || '';
   const password = (req.query.password as string) || '';
-  const type = (req.query.type as string) || 'all'; // all, live, vod, series
+  const type = (req.query.type as string) || 'all'; // all, live, vod, series, epg
 
   // Authentication
   const authResult = checkAuth(username, password);
@@ -48,6 +48,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (type === 'all' || type === 'series') {
       await refreshPlaylistCache('series');
       results.series = getCacheInfo('series');
+    }
+
+    if (type === 'all' || type === 'epg') {
+      await refreshPlaylistCache('epg');
+      results.epg = getCacheInfo('epg');
     }
 
     return res.status(200).json({

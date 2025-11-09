@@ -12,6 +12,11 @@ import {
   getVODCategories,
   getSeriesCategories,
   getUserInfo,
+  getShortEPG,
+  getEPG,
+  getSeriesInfo,
+  getSeriesStreams,
+  getVODInfo,
 } from '../src/xtream-api';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -73,7 +78,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         break;
 
       case 'get_short_epg':
-        response = [];
+        const streamId = (req.query.stream_id as string) || '';
+        response = await getShortEPG(streamId);
+        break;
+
+      case 'get_epg':
+        const epgStreamId = (req.query.stream_id as string) || '';
+        if (!epgStreamId) {
+          return res.status(400).json({ error: 'stream_id parameter required' });
+        }
+        response = await getEPG(epgStreamId);
+        break;
+
+      case 'get_series_info':
+        const seriesId = (req.query.series_id as string) || '';
+        if (!seriesId) {
+          return res.status(400).json({ error: 'series_id parameter required' });
+        }
+        response = await getSeriesInfo(seriesId);
+        if (!response) {
+          return res.status(404).json({ error: 'Series not found' });
+        }
+        break;
+
+      case 'get_series_streams':
+        const seriesStreamId = (req.query.series_id as string) || '';
+        if (!seriesStreamId) {
+          return res.status(400).json({ error: 'series_id parameter required' });
+        }
+        response = await getSeriesStreams(seriesStreamId);
+        break;
+
+      case 'get_vod_info':
+        const vodId = (req.query.vod_id as string) || '';
+        if (!vodId) {
+          return res.status(400).json({ error: 'vod_id parameter required' });
+        }
+        response = await getVODInfo(vodId);
+        if (!response) {
+          return res.status(404).json({ error: 'VOD not found' });
+        }
         break;
 
       default:

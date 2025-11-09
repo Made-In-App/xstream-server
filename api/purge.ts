@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Get parameters
-  const type = (req.query.type as string) || 'all'; // all, live, vod, series
+  const type = (req.query.type as string) || 'all'; // all, live, vod, series, epg
 
   // No authentication required for purge endpoint
   logAccess(`Cache purge requested - Type: ${type}`);
@@ -40,6 +40,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (type === 'all' || type === 'series') {
       const purged = await purgeCache('series');
       results.series = { purged, message: purged ? 'Cache purged successfully' : 'No cache to purge' };
+    }
+
+    if (type === 'all' || type === 'epg') {
+      const purged = await purgeCache('epg');
+      results.epg = { purged, message: purged ? 'Cache purged successfully' : 'No cache to purge' };
     }
 
     return res.status(200).json({

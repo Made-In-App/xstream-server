@@ -23,6 +23,14 @@
       "dest": "/api/purge"
     },
     {
+      "src": "/xmltv.php",
+      "dest": "/api/xmltv"
+    },
+    {
+      "src": "/stream.php",
+      "dest": "/api/stream"
+    },
+    {
       "src": "/",
       "dest": "/api/index"
     }
