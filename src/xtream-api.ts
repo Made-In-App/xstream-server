@@ -211,7 +211,7 @@ export function getUserInfo(username: string): UserInfo {
     username,
     password: 'gJWB28F', // Password reale (come nel server originale)
     message: '', // Messaggio vuoto
-    auth: 1, // 1 = autenticato, 0 = non autenticato
+    auth: 1, // 1 = autenticato, 0 = non autenticato (numero per compatibilità)
     status: 'Active', // Active, Disabled, Expired
     exp_date: 1764603837, // Timestamp Unix (numero) - esempio dal server originale
     is_trial: '0', // 0 = no trial, 1 = trial

@@ -63,18 +63,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   logAccess(`API access: ${username} - Action: ${action || '(none)'}`);
 
-  // Se non c'è action, restituisci user_info + server_info (formato standard Xtream)
-  // Questo è lo stesso formato di action=get_user_info
+  // Se non c'è action, tratta come get_user_info (comportamento standard Xtream)
+  // Molti client chiamano player_api.php senza action e si aspettano user_info + server_info
   if (!action || action.trim() === '') {
-    logAccess(`No action specified, returning user_info + server_info for ${username}`);
+    logAccess(`No action specified, treating as get_user_info for ${username}`);
     const userInfo = getUserInfo(username);
     const serverInfo = getServerInfo();
+    
+    // Alcuni client si aspettano auth come stringa invece di numero
+    // Convertiamo auth in stringa per compatibilità
     const response = {
-      user_info: userInfo,
+      user_info: {
+        ...userInfo,
+        auth: String(userInfo.auth), // Converti auth in stringa per compatibilità
+      },
       server_info: serverInfo,
     };
     // Log della risposta per debug
-    console.log(`[DEBUG] Response for ${username} (no action):`, JSON.stringify(response, null, 2));
+    console.log(`[DEBUG] Response for ${username} (no action, treated as get_user_info):`, JSON.stringify(response, null, 2));
     return res.status(200).json(response);
   }
 
@@ -109,8 +115,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       case 'get_user_info':
         // Restituisci user_info + server_info come il server originale
+        const userInfoForAction = getUserInfo(username);
         response = {
-          user_info: getUserInfo(username),
+          user_info: {
+            ...userInfoForAction,
+            auth: String(userInfoForAction.auth), // Converti auth in stringa per compatibilità
+          },
           server_info: getServerInfo(),
         };
         break;
