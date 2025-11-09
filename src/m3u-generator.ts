@@ -67,104 +67,130 @@ function rewriteM3UUrls(content: string, serverUrl: string): string {
 
 /**
  * Generate M3U playlist content
+ * Restituisce le playlist originali senza modificarle per garantire che siano identiche alla sorgente
  */
 export async function generateM3U(type: 'm3u' | 'm3u_plus'): Promise<string> {
-  // Ottieni l'URL base del nostro server
-  const serverUrl = process.env.VERCEL_URL 
-    ? `https://${process.env.VERCEL_URL}` 
-    : (process.env.SERVER_URL || 'https://xstream-server.vercel.app');
-  
-  let content = '#EXTM3U\n';
+  let content = '';
 
   if (type === 'm3u') {
     // Only live streams
     try {
       const liveContent = await getPlaylistContent('live');
-      const cleaned = cleanM3UContent(liveContent);
-      const rewritten = rewriteM3UUrls(cleaned, serverUrl);
-      content += rewritten;
-      if (!rewritten.endsWith('\n')) {
-        content += '\n';
+      // Restituisci il contenuto originale senza modifiche
+      if (liveContent && liveContent.trim()) {
+        content = liveContent.trim();
+        if (!content.startsWith('#EXTM3U')) {
+          content = '#EXTM3U\n' + content;
+        }
+        if (!content.endsWith('\n')) {
+          content += '\n';
+        }
       }
     } catch (error) {
       console.error('Error getting live content:', error);
       // Fallback to file if exists
       if (fs.existsSync(config.playlists.live)) {
-        const fileContent = fs.readFileSync(config.playlists.live, 'utf-8');
-        const cleaned = cleanM3UContent(fileContent);
-        const rewritten = rewriteM3UUrls(cleaned, serverUrl);
-        content += rewritten;
-        if (!rewritten.endsWith('\n')) {
+        content = fs.readFileSync(config.playlists.live, 'utf-8');
+        if (!content.startsWith('#EXTM3U')) {
+          content = '#EXTM3U\n' + content;
+        }
+        if (!content.endsWith('\n')) {
           content += '\n';
         }
+      } else {
+        content = '#EXTM3U\n';
       }
     }
   } else if (type === 'm3u_plus') {
-    // Live + VOD + Series
+    // Live + VOD + Series - combina tutto mantenendo il formato originale
+    const parts: string[] = [];
+    
     try {
       const liveContent = await getPlaylistContent('live');
-      const cleaned = cleanM3UContent(liveContent);
-      const rewritten = rewriteM3UUrls(cleaned, serverUrl);
-      content += rewritten;
-      if (!rewritten.endsWith('\n')) {
-        content += '\n';
+      if (liveContent && liveContent.trim()) {
+        let cleaned = liveContent.trim();
+        // Rimuovi #EXTM3U se presente (lo aggiungeremo una volta all'inizio)
+        if (cleaned.startsWith('#EXTM3U')) {
+          cleaned = cleaned.substring(cleaned.indexOf('\n') + 1).trim();
+        }
+        if (cleaned) {
+          parts.push(cleaned);
+        }
       }
     } catch (error) {
       console.error('Error getting live content:', error);
       if (fs.existsSync(config.playlists.live)) {
-        const fileContent = fs.readFileSync(config.playlists.live, 'utf-8');
-        const cleaned = cleanM3UContent(fileContent);
-        const rewritten = rewriteM3UUrls(cleaned, serverUrl);
-        content += rewritten;
-        if (!rewritten.endsWith('\n')) {
-          content += '\n';
+        let fileContent = fs.readFileSync(config.playlists.live, 'utf-8').trim();
+        if (fileContent.startsWith('#EXTM3U')) {
+          fileContent = fileContent.substring(fileContent.indexOf('\n') + 1).trim();
+        }
+        if (fileContent) {
+          parts.push(fileContent);
         }
       }
     }
 
     try {
       const vodContent = await getPlaylistContent('vod');
-      const cleaned = cleanM3UContent(vodContent);
-      const rewritten = rewriteM3UUrls(cleaned, serverUrl);
-      content += rewritten;
-      if (!rewritten.endsWith('\n')) {
-        content += '\n';
+      if (vodContent && vodContent.trim()) {
+        let cleaned = vodContent.trim();
+        // Rimuovi #EXTM3U se presente
+        if (cleaned.startsWith('#EXTM3U')) {
+          cleaned = cleaned.substring(cleaned.indexOf('\n') + 1).trim();
+        }
+        if (cleaned) {
+          parts.push(cleaned);
+        }
       }
     } catch (error) {
       console.error('Error getting vod content:', error);
       if (fs.existsSync(config.playlists.vod)) {
-        const fileContent = fs.readFileSync(config.playlists.vod, 'utf-8');
-        const cleaned = cleanM3UContent(fileContent);
-        const rewritten = rewriteM3UUrls(cleaned, serverUrl);
-        content += rewritten;
-        if (!rewritten.endsWith('\n')) {
-          content += '\n';
+        let fileContent = fs.readFileSync(config.playlists.vod, 'utf-8').trim();
+        if (fileContent.startsWith('#EXTM3U')) {
+          fileContent = fileContent.substring(fileContent.indexOf('\n') + 1).trim();
+        }
+        if (fileContent) {
+          parts.push(fileContent);
         }
       }
     }
 
     try {
       const seriesContent = await getPlaylistContent('series');
-      const cleaned = cleanM3UContent(seriesContent);
-      const rewritten = rewriteM3UUrls(cleaned, serverUrl);
-      content += rewritten;
-      if (!rewritten.endsWith('\n')) {
-        content += '\n';
+      if (seriesContent && seriesContent.trim()) {
+        let cleaned = seriesContent.trim();
+        // Rimuovi #EXTM3U se presente
+        if (cleaned.startsWith('#EXTM3U')) {
+          cleaned = cleaned.substring(cleaned.indexOf('\n') + 1).trim();
+        }
+        if (cleaned) {
+          parts.push(cleaned);
+        }
       }
     } catch (error) {
       console.error('Error getting series content:', error);
       if (fs.existsSync(config.playlists.series)) {
-        const fileContent = fs.readFileSync(config.playlists.series, 'utf-8');
-        const cleaned = cleanM3UContent(fileContent);
-        const rewritten = rewriteM3UUrls(cleaned, serverUrl);
-        content += rewritten;
-        if (!rewritten.endsWith('\n')) {
-          content += '\n';
+        let fileContent = fs.readFileSync(config.playlists.series, 'utf-8').trim();
+        if (fileContent.startsWith('#EXTM3U')) {
+          fileContent = fileContent.substring(fileContent.indexOf('\n') + 1).trim();
+        }
+        if (fileContent) {
+          parts.push(fileContent);
         }
       }
     }
+
+    // Combina tutte le parti con un solo header #EXTM3U
+    if (parts.length > 0) {
+      content = '#EXTM3U\n' + parts.join('\n');
+      if (!content.endsWith('\n')) {
+        content += '\n';
+      }
+    } else {
+      content = '#EXTM3U\n';
+    }
   }
 
-  return content.trim() + '\n';
+  return content;
 }
 

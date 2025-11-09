@@ -24,13 +24,17 @@ async function downloadPlaylist(type: 'live' | 'vod' | 'series' | 'epg'): Promis
   let endpoint = '';
   switch (type) {
     case 'live':
+      // Per live, usa type=m3u per ottenere solo i canali live
       endpoint = `${url}/get.php?username=${username}&password=${password}&type=m3u`;
       break;
     case 'vod':
-      endpoint = `${url}/get.php?username=${username}&password=${password}&type=m3u_plus&output=ts`;
+      // Per VOD, scarica m3u_plus completo e filtra solo i movie
+      // Alternativa: usa type=m3u_plus senza output per ottenere tutto, poi filtra
+      endpoint = `${url}/get.php?username=${username}&password=${password}&type=m3u_plus`;
       break;
     case 'series':
-      endpoint = `${url}/get.php?username=${username}&password=${password}&type=m3u_plus&output=mkv`;
+      // Per Series, scarica m3u_plus completo e filtra solo le serie
+      endpoint = `${url}/get.php?username=${username}&password=${password}&type=m3u_plus`;
       break;
     case 'epg':
       endpoint = `${url}/xmltv.php?username=${username}&password=${password}`;
