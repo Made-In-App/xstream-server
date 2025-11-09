@@ -65,7 +65,22 @@ async function downloadPlaylist(type: 'live' | 'vod' | 'series' | 'epg'): Promis
       });
 
       res.on('end', () => {
-        resolve(data);
+        // Filtra il contenuto per tipo se necessario
+        let filteredData = data;
+        
+        // Se abbiamo scaricato m3u_plus per VOD o Series, filtra solo il tipo corretto
+        if (type === 'vod' || type === 'series') {
+          const originalLength = data.split('\n').length;
+          filteredData = filterM3UByType(data, type);
+          const filteredLength = filteredData.split('\n').length;
+          logAccess(`Filtered ${type} playlist: ${originalLength} lines -> ${filteredLength} lines`);
+        }
+        
+        if (!filteredData || filteredData.trim().length === 0) {
+          logAccess(`Warning: Downloaded ${type} playlist is empty after filtering`);
+        }
+        
+        resolve(filteredData);
       });
     });
 
@@ -78,6 +93,66 @@ async function downloadPlaylist(type: 'live' | 'vod' | 'series' | 'epg'): Promis
       reject(new Error('Download timeout'));
     });
   });
+}
+
+/**
+ * Filtra il contenuto M3U per tipo (vod o series)
+ * Mantiene solo le righe che corrispondono al tipo specificato
+ */
+function filterM3UByType(content: string, type: 'vod' | 'series'): string {
+  const lines = content.split('\n');
+  const filtered: string[] = [];
+  let currentExtinf: string[] = []; // Array per gestire EXTINF e tag aggiuntivi
+  let foundUrl = false;
+  
+  // Pattern per identificare il tipo dall'URL
+  const urlPattern = type === 'vod' ? /\/movie\// : /\/series\//;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    
+    if (trimmed.startsWith('#EXTM3U')) {
+      // Mantieni sempre l'header
+      filtered.push(line);
+      continue;
+    }
+    
+    if (trimmed.startsWith('#EXTINF')) {
+      // Inizia una nuova entry, salva EXTINF
+      currentExtinf = [line];
+      foundUrl = false;
+      continue;
+    }
+    
+    // Se è una riga URL
+    if (trimmed && trimmed.startsWith('http')) {
+      // Controlla se l'URL corrisponde al tipo
+      if (urlPattern.test(trimmed)) {
+        // Mantieni questa entry: aggiungi tutte le righe EXTINF salvate + URL
+        filtered.push(...currentExtinf);
+        filtered.push(line);
+      }
+      // Reset per la prossima entry
+      currentExtinf = [];
+      foundUrl = true;
+      continue;
+    }
+    
+    // Se abbiamo una EXTINF salvata ma non abbiamo ancora trovato l'URL
+    // potrebbe essere un tag aggiuntivo (es. #EXTGRP, #EXTVLCOPT)
+    if (currentExtinf.length > 0 && !foundUrl) {
+      if (trimmed.startsWith('#')) {
+        // Tag aggiuntivo, aggiungilo all'entry corrente
+        currentExtinf.push(line);
+      } else if (trimmed === '') {
+        // Righe vuote, mantienile
+        currentExtinf.push(line);
+      }
+    }
+  }
+  
+  return filtered.join('\n');
 }
 
 /**

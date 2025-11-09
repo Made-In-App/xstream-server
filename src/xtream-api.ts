@@ -20,7 +20,9 @@ import {
  * Get Live Streams
  */
 export async function getLiveStreams(): Promise<LiveStream[]> {
+  console.log(`[getLiveStreams] Parsing playlist from: ${config.playlists.live}`);
   const streams = await parseM3UAsync(config.playlists.live);
+  console.log(`[getLiveStreams] Parsed ${streams.length} streams`);
   const result: LiveStream[] = [];
 
   // Ottieni l'URL base del nostro server (per costruire gli URL stream.php)
@@ -59,7 +61,9 @@ export async function getLiveStreams(): Promise<LiveStream[]> {
  * Get VOD Streams
  */
 export async function getVODStreams(): Promise<VODStream[]> {
+  console.log(`[getVODStreams] Parsing playlist from: ${config.playlists.vod}`);
   const streams = await parseM3UAsync(config.playlists.vod);
+  console.log(`[getVODStreams] Parsed ${streams.length} streams`);
   const result: VODStream[] = [];
 
   streams.forEach((stream, idx) => {
@@ -91,7 +95,9 @@ export async function getVODStreams(): Promise<VODStream[]> {
  * Get Series
  */
 export async function getSeries(): Promise<Series[]> {
+  console.log(`[getSeries] Parsing playlist from: ${config.playlists.series}`);
   const streams = await parseM3UAsync(config.playlists.series);
+  console.log(`[getSeries] Parsed ${streams.length} streams`);
   const seriesMap = new Map<string, Series>();
 
   streams.forEach((stream) => {
