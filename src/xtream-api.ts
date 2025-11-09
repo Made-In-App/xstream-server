@@ -23,8 +23,17 @@ export async function getLiveStreams(): Promise<LiveStream[]> {
   const streams = await parseM3UAsync(config.playlists.live);
   const result: LiveStream[] = [];
 
+  // Ottieni l'URL base del nostro server (per costruire gli URL stream.php)
+  const serverUrl = process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}` 
+    : (process.env.SERVER_URL || 'https://xstream-server.vercel.app');
+
   streams.forEach((stream, idx) => {
     const streamId = extractStreamId(stream.url) || String(idx + 1);
+    
+    // Costruisci l'URL usando stream.php invece dell'URL diretto
+    // Formato: /stream.php?username=USER&password=PASS&type=live&id=STREAM_ID
+    const streamUrl = `${serverUrl}/stream.php?username=${encodeURIComponent(stream.url.includes('username') ? '' : 'user')}&password=${encodeURIComponent(stream.url.includes('password') ? '' : 'pass')}&type=live&id=${streamId}`;
 
     result.push({
       num: idx + 1,
@@ -38,7 +47,7 @@ export async function getLiveStreams(): Promise<LiveStream[]> {
       category_name: stream.groupTitle || 'General',
       custom_sid: '',
       tv_archive: 0,
-      direct_source: stream.url, // Mantieni l'URL originale dalla playlist
+      direct_source: streamUrl, // Usa stream.php invece dell'URL diretto
       tv_archive_duration: 0,
     });
   });
