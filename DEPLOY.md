@@ -39,7 +39,7 @@ XTREAM_USERNAME=tuo-username
 XTREAM_PASSWORD=tua-password
 ```
 
-> Nota: `startCommand` nel blueprint esegue automaticamente `pnpm --filter @xstream/ingest ingest` prima di avviare l'API. Non serve un servizio ingest separato.
+> Nota: il `Dockerfile.api` esegue automaticamente `pnpm --filter @xstream/ingest ingest` prima di avviare l'API, quindi non serve un servizio ingest separato.
 
 #### Per xstream-relay
 ```

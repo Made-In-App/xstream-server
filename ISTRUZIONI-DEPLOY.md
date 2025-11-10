@@ -35,7 +35,7 @@ XTREAM_USERNAME=tuo-username
 XTREAM_PASSWORD=tua-password
 ```
 
-> Il `startCommand` nel blueprint è `sh -c "pnpm --filter @xstream/ingest ingest && node dist/index.js"`. Questo fa girare l'ingest prima di avviare l'API.
+> Il comando di avvio nel `Dockerfile.api` è `sh -c "pnpm --filter @xstream/ingest ingest && node dist/index.js"`, quindi l'ingest gira automaticamente prima dell'API.
 
 ### xstream-relay
 ```

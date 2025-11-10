@@ -7,7 +7,6 @@ services:
     plan: free
     region: frankfurt
     healthCheckPath: /health
-    startCommand: sh -c "pnpm --filter @xstream/ingest ingest && node dist/index.js"
     envVars:
       - key: PORT
         value: 8080
