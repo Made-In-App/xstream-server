@@ -1,70 +1,44 @@
-# Xtream Server
+# Xstream Platform
 
-Server Xtream Codes API implementato in Node.js/TypeScript per Vercel.
+Piattaforma per replicare e servire un account Xtream Codes da più dispositivi contemporaneamente.
 
-## Caratteristiche
+## Come Funziona
 
-- API completa compatibile con Xtream Codes
-- Supporto Live, VOD e Serie TV
-- Generazione playlist M3U
-- Categorizzazione automatica
-- Cache delle playlist per performance
-- Deploy automatico su Vercel
-- Serverless functions ottimizzate
+1. **Ingest**: Scarica periodicamente playlist e metadati dal server Xtream originale
+2. **API**: Serve i dati cached con endpoint compatibili Xtream
+3. **Relay**: Fa proxy degli stream, mantenendo una sola connessione upstream per canale
+
+Risultato: più dispositivi possono usare lo stesso account Xtream senza problemi di connessioni multiple.
+
+## Architettura
+
+- **packages/ingest**: Job che scarica dati dal server Xtream
+- **packages/core**: Tipi condivisi
+- **apps/api**: Server Fastify con API compatibili Xtream
+- **apps/stream-relay**: Proxy Go per streaming multi-client
+
+## Quick Start
+
+Vedi [SETUP.md](./SETUP.md) per setup locale.
+
+Vedi [DEPLOY.md](./DEPLOY.md) per deploy su Render.com.
 
 ## Requisiti
 
-- Node.js 18.x o superiore
-- npm o yarn
-- Account Vercel (per deploy)
+- Node.js 18.18+
+- pnpm
+- Go 1.22+ (solo per test locale del relay)
 
-## Installazione Locale
+## Deploy
 
-1. Installa le dipendenze:
-   ```bash
-   npm install
-   ```
+Il progetto è configurato per **Render.com** (gratuito). Vercel non è più utilizzato perché:
 
-2. Configura le playlist M3U:
-   - Crea la cartella playlists/ nella root del progetto
-   - Copia i file M3U
+- **Render.com** supporta persistent disk (necessario per condividere dati tra API e Ingest)
+- **Render.com** supporta container Docker completi (necessario per il relay Go)
+- **Render.com** ha un free tier che include storage persistente
 
-3. Sviluppo locale:
-   ```bash
-   npm run dev
-   ```
-
-## Deploy su Vercel
-
-Vedi GIT_AND_DEPLOY.md per la guida completa al deploy.
-
-## Endpoint API
-
-### Player API
-GET /player_api.php?username=USER&password=PASS&action=ACTION
-
-Azioni disponibili:
-- get_live_streams - Lista canali live
-- get_vod_streams - Lista film VOD
-- get_series - Lista serie TV
-- get_live_categories - Categorie live
-- get_vod_categories - Categorie VOD
-- get_series_categories - Categorie serie
-- get_user_info - Info utente
-
-### Playlist M3U
-GET /get.php?username=USER&password=PASS&type=TYPE
-
-Tipi disponibili:
-- m3u - Solo canali live
-- m3u_plus - Live + VOD + Serie
-
-## Configurazione
-
-Crea il file xtream-config.json nella root del progetto.
-Vedi xtream-config.example.json per un esempio.
+Vedi [DEPLOY.md](./DEPLOY.md) per istruzioni complete.
 
 ## Licenza
 
 MIT
-
