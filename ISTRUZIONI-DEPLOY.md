@@ -12,194 +12,73 @@ Guida passo-passo per deployare su Render.com.
    - `Dockerfile.ingest`
    - `apps/stream-relay/Dockerfile`
 
-## Passo 2: Deploy su Render
-
-### Opzione A: Deploy Automatico (Consigliato)
+## Passo 2: Deploy via Blueprint (Consigliato)
 
 1. Vai su [dashboard.render.com](https://dashboard.render.com)
 2. Clicca **"New"** → **"Blueprint"**
 3. Connetti il tuo repository Git
-4. Render leggerà `render.yaml` e creerà automaticamente 3 servizi
-
-### Opzione B: Deploy Manuale
-
-Crea 3 servizi separati:
-
-#### Servizio 1: API
-
-1. **"New"** → **"Web Service"**
-2. Connetti repository
-3. Configurazione:
-   - Name: `xstream-api`
-   - Environment: `Docker`
-   - Dockerfile Path: `./Dockerfile.api`
-   - Docker Context: `.`
-   - Plan: `Starter` (gratuito)
-
-#### Servizio 2: Relay
-
-1. **"New"** → **"Web Service"**
-2. Connetti stesso repository
-3. Configurazione:
-   - Name: `xstream-relay`
-   - Environment: `Docker`
-   - Dockerfile Path: `./apps/stream-relay/Dockerfile`
-   - Docker Context: `./apps/stream-relay`
-   - Plan: `Starter`
-
-#### Servizio 3: Ingest
-
-1. **"New"** → **"Background Worker"**
-2. Connetti stesso repository
-3. Configurazione:
-   - Name: `xstream-ingest`
-   - Environment: `Docker`
-   - Dockerfile Path: `./Dockerfile.ingest`
-   - Docker Context: `.`
-   - Plan: `Starter`
+4. Render creerà due servizi:
+   - `xstream-api` (esegue l'ingest all'avvio e avvia l'API)
+   - `xstream-relay`
 
 ## Passo 3: Environment Variables
 
-Per **ogni servizio**, vai in **Environment** e aggiungi:
-
-### Variabili Comuni (tutti e 3 i servizi):
-
-```
-XTREAM_BASE_URL=https://tuo-server-xtream.com
-XTREAM_USERNAME=tuo-username
-XTREAM_PASSWORD=tua-password
-```
-
-### Solo per xstream-api:
-
+### xstream-api
 ```
 PORT=8080
 HOST=0.0.0.0
 DATA_ROOT=/app/data
 PUBLIC_BASE_URL=https://xstream-api.onrender.com
 STREAM_RELAY_BASE_URL=https://xstream-relay.onrender.com
+XTREAM_BASE_URL=https://tuo-server-xtream.com
+XTREAM_USERNAME=tuo-username
+XTREAM_PASSWORD=tua-password
 ```
 
-### Solo per xstream-relay:
+> Il `startCommand` nel blueprint è `sh -c "pnpm --filter @xstream/ingest ingest && node dist/index.js"`. Questo fa girare l'ingest prima di avviare l'API.
 
+### xstream-relay
 ```
 STREAM_RELAY_PORT=8090
+XTREAM_BASE_URL=https://tuo-server-xtream.com
+XTREAM_USERNAME=tuo-username
+XTREAM_PASSWORD=tua-password
 ```
 
-### Solo per xstream-ingest:
+## Passo 4: Flusso di Deploy
 
-```
-STORAGE_ROOT=/app/data
-```
+1. Render builda le immagini Docker.
+2. L'avvio di `xstream-api` esegue l'ingest (scarica playlist, metadati, EPG) e poi avvia l'API.
+3. `xstream-relay` si avvia e proxy gli stream.
 
-## Passo 4: Persistent Disk
+## Passo 5: Aggiornare i Dati Periodicamente
 
-**CRITICO**: Configura il disk condiviso per API e Ingest.
+- Ogni riavvio/nuovo deploy esegue automaticamente l'ingest.
+- Per aggiornamenti programmati:
+  1. Vai in **Settings → Deploy Hooks** del servizio API e genera un hook "Manual Deploy".
+  2. Copia l'URL.
+  3. Usa un servizio cron esterno (es. [cron-job.org](https://cron-job.org)) per eseguire una richiesta POST/GET all'hook ogni 30-60 minuti.
+  4. Ogni chiamata forza un redeploy: l'API si riavvia, esegue l'ingest, riparte con dati freschi.
 
-1. Vai al servizio **xstream-api**
-2. Sezione **"Disk"**
-3. Clicca **"Create Disk"**
-4. Configurazione:
-   - Name: `xstream-data`
-   - Mount Path: `/app/data`
-   - Size: 10 GB
-5. Ripeti per **xstream-ingest** (usa lo stesso nome `xstream-data`)
+## Passo 6: Verifica
 
-## Passo 5: Primo Ingest
+1. `curl https://xstream-api.onrender.com/health`
+2. `curl https://xstream-relay.onrender.com/health`
+3. `curl "https://xstream-api.onrender.com/player_api.php?username=USER&password=PASS"`
 
-Dopo che tutti i servizi sono deployati:
+## Passo 7: Configurare i Client IPTV
 
-1. Vai al servizio **xstream-ingest**
-2. Clicca **"Manual Deploy"** → **"Deploy latest commit"**
-3. Attendi che completi
-4. Controlla i log per verificare che abbia scaricato i dati
-
-## Passo 6: Scheduling Ingest
-
-Render non supporta cron nativi. Usa un servizio esterno:
-
-### Opzione A: cron-job.org (Gratuito)
-
-1. Vai su [cron-job.org](https://cron-job.org)
-2. Crea account gratuito
-3. **"Create cronjob"**
-4. Configurazione:
-   - Title: `Xstream Ingest`
-   - Address: `https://xstream-ingest.onrender.com` (o URL del worker)
-   - Schedule: `0 */6 * * *` (ogni 6 ore)
-   - Request Method: `GET`
-
-### Opzione B: Manuale
-
-Esegui manualmente quando necessario dal dashboard Render.
-
-## Passo 7: Verifica
-
-### Test Health Checks
-
-```bash
-# API
-curl https://xstream-api.onrender.com/health
-
-# Relay
-curl https://xstream-relay.onrender.com/health
-```
-
-### Test API Completa
-
-```bash
-curl "https://xstream-api.onrender.com/player_api.php?username=USER&password=PASS"
-```
-
-Dovresti vedere la risposta con user_info e server_info.
-
-## Passo 8: Configura Client IPTV
-
-Usa questi dati nei tuoi client IPTV (TiviMate, IPTV Smarters, etc.):
-
-- **Server URL**: `https://xstream-api.onrender.com`
-- **Username**: (quello configurato in `XTREAM_USERNAME`)
-- **Password**: (quello configurato in `XTREAM_PASSWORD`)
+Server URL: `https://xstream-api.onrender.com`
+Username/Password: quelli configurati nelle variabili d'ambiente.
 
 ## Troubleshooting
 
-### Servizio non si avvia
-
-- Controlla i log di build in Render dashboard
-- Verifica che le variabili d'ambiente siano settate correttamente
-- Controlla che i Dockerfile siano corretti
-
-### API restituisce 503
-
-- Verifica che l'ingest sia stato eseguito almeno una volta
-- Controlla che il disk sia montato correttamente
-- Verifica che `DATA_ROOT` punti a `/app/data`
-
-### Stream non funzionano
-
-- Verifica che il relay sia avviato
-- Controlla che `STREAM_RELAY_BASE_URL` nell'API sia corretto
-- Verifica le credenziali Xtream nel relay
-
-### Disk non condiviso
-
-- Entrambi i servizi (API e Ingest) devono usare lo stesso disk name: `xstream-data`
-- Verifica che il mount path sia `/app/data` per entrambi
-
-## Aggiornamenti
-
-Ogni push al branch principale triggera automaticamente un nuovo deploy per tutti i servizi.
-
-Per deploy manuale:
-1. Vai al servizio
-2. **"Manual Deploy"** → **"Deploy latest commit"**
+- **API lenta al primo avvio**: sta eseguendo l'ingest; attendi qualche minuto.
+- **Playlist vuote**: verifica credenziali Xtream o forza un redeploy.
+- **Stream in errore**: controlla che il relay sia up e che l'URL `STREAM_RELAY_BASE_URL` sia corretto.
+- **Aggiornamenti automatici**: se il cron non funziona, controlla i log del servizio cron o usa un altro provider.
 
 ## Costi
 
-**Free Tier Render**:
-- 750 ore/mese di runtime (sufficiente per 3 servizi 24/7)
-- 10 GB storage
-- Sleep dopo 15 minuti di inattività (cold start ~30-60 secondi)
-
-**Totale**: Gratuito se rimani nel free tier.
+- Piano **free** di Render (nessuna carta richiesta). Il filesystem è effimero ma l'ingest gira ad ogni avvio, quindi non serve storage persistente.
 

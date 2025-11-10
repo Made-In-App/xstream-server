@@ -1,13 +1,13 @@
 services:
-  # API Service - Fastify server
   - type: web
     name: xstream-api
     env: docker
     dockerfilePath: ./Dockerfile.api
     dockerContext: .
-    plan: starter
+    plan: free
     region: frankfurt
     healthCheckPath: /health
+    startCommand: sh -c "pnpm --filter @xstream/ingest ingest && node dist/index.js"
     envVars:
       - key: PORT
         value: 8080
@@ -25,18 +25,13 @@ services:
         sync: false
       - key: XTREAM_BASE_URL
         sync: false
-    disk:
-      name: xstream-data
-      mountPath: /app/data
-      sizeGB: 10
 
-  # Stream Relay Service - Go proxy
   - type: web
     name: xstream-relay
     env: docker
     dockerfilePath: ./apps/stream-relay/Dockerfile
     dockerContext: ./apps/stream-relay
-    plan: starter
+    plan: free
     region: frankfurt
     healthCheckPath: /health
     envVars:
@@ -48,25 +43,3 @@ services:
         sync: false
       - key: XTREAM_PASSWORD
         sync: false
-
-  # Ingest Worker - Background job
-  - type: worker
-    name: xstream-ingest
-    env: docker
-    dockerfilePath: ./Dockerfile.ingest
-    dockerContext: .
-    plan: starter
-    region: frankfurt
-    envVars:
-      - key: STORAGE_ROOT
-        value: /app/data
-      - key: XTREAM_BASE_URL
-        sync: false
-      - key: XTREAM_USERNAME
-        sync: false
-      - key: XTREAM_PASSWORD
-        sync: false
-    disk:
-      name: xstream-data
-      mountPath: /app/data
-      sizeGB: 10

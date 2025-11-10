@@ -29,10 +29,10 @@
 
 ### 4. Deploy
 - ✅ Dockerfile per API
-- ✅ Dockerfile per Ingest
+- ✅ Dockerfile per Ingest (usato nello start command)
 - ✅ Dockerfile per Relay
-- ✅ render.yaml per deploy automatico
-- ✅ Configurazione persistent disk condiviso
+- ✅ render.yaml per deploy automatico (API + Relay, piano free Render)
+- ✅ Strategia ingest-on-boot (inizializza dati ad ogni riavvio)
 
 ### 5. Documentazione
 - ✅ README.md - Panoramica
