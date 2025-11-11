@@ -40,6 +40,7 @@ RUN pnpm install --frozen-lockfile --prod
 
 # Copy built files
 COPY --from=builder /app/packages/core/dist ./packages/core/dist
+COPY --from=builder /app/packages/ingest/dist ./packages/ingest/dist
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
 # Create data directory (temporaneo, rigenerato ad ogni avvio)
@@ -49,5 +50,5 @@ WORKDIR /app/apps/api
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "pnpm --filter @xstream/ingest ingest && node dist/index.js"]
+CMD ["sh", "-c", "node ../ingest/dist/index.js && node dist/index.js"]
 
