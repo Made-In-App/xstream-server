@@ -6,7 +6,7 @@ WORKDIR /app/relay
 COPY apps/stream-relay/go.mod apps/stream-relay/go.sum* ./
 COPY apps/stream-relay/main.go ./
 
-RUN go mod download
+RUN go mod tidy && go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o stream-relay .
 
 # Multi-stage build: Node.js API
