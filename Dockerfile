@@ -1,4 +1,16 @@
-FROM node:20-alpine AS builder
+# Multi-stage build: Go relay
+FROM golang:1.22-alpine AS relay-builder
+
+WORKDIR /app/relay
+
+COPY apps/stream-relay/go.mod apps/stream-relay/go.sum* ./
+COPY apps/stream-relay/main.go ./
+
+RUN go mod download
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o stream-relay .
+
+# Multi-stage build: Node.js API
+FROM node:20-alpine AS node-builder
 
 WORKDIR /app
 
@@ -30,6 +42,10 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Install Go runtime for relay (or copy static binary)
+COPY --from=relay-builder /app/relay/stream-relay /app/relay/stream-relay
+RUN chmod +x /app/relay/stream-relay
+
 # Copy workspace files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/core/package.json ./packages/core/
@@ -43,16 +59,18 @@ RUN npm install -g pnpm
 RUN pnpm install --frozen-lockfile --prod
 
 # Copy built files
-COPY --from=builder /app/packages/core/dist ./packages/core/dist
-COPY --from=builder /app/packages/ingest/dist ./packages/ingest/dist
-COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=node-builder /app/packages/core/dist ./packages/core/dist
+COPY --from=node-builder /app/packages/ingest/dist ./packages/ingest/dist
+COPY --from=node-builder /app/apps/api/dist ./apps/api/dist
 
-# Create data directory (temporaneo, rigenerato ad ogni avvio)
+# Copy startup script
+COPY scripts/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+# Create data directory
 RUN mkdir -p /app/data
-
-WORKDIR /app
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "pnpm --filter @xstream/ingest run ingest || node packages/ingest/dist/index.js; pnpm --filter api run start"]
+CMD ["/app/start.sh"]
 

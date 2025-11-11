@@ -4,6 +4,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { loadSnapshotBundle } from '../lib/snapshot.js';
 import { env } from '../lib/env.js';
+import { registerRelayProxy } from '../lib/relay-proxy.js';
 
 interface PlayerApiQuery {
   username?: string;
@@ -51,8 +52,11 @@ function buildM3ULines(streams: StreamMetadata[], relayBase: string, username: s
   return lines.join('\n');
 }
 
-export function registerRoutes(server: FastifyInstance) {
+export async function registerRoutes(server: FastifyInstance) {
   server.get('/health', async () => ({ status: 'ok' }));
+
+  // Proxy relay requests to internal relay service
+  await registerRelayProxy(server);
 
   server.get('/player_api.php', async (request, reply) => {
     const query = request.query as PlayerApiQuery;
@@ -81,7 +85,8 @@ export function registerRoutes(server: FastifyInstance) {
       });
     }
 
-    const relayBase = env.STREAM_RELAY_BASE_URL;
+    // Use internal relay path
+    const relayBase = env.PUBLIC_BASE_URL || 'http://localhost:8080';
 
     if (!action || action === '') {
       return {
@@ -99,7 +104,7 @@ export function registerRoutes(server: FastifyInstance) {
           message: '',
         },
         server_info: {
-          url: new URL(env.PUBLIC_BASE_URL).hostname,
+          url: new URL(relayBase).hostname,
           port: '80',
           https_port: bundle.server.httpsPort ?? '443',
           server_protocol: 'https',
@@ -160,7 +165,7 @@ export function registerRoutes(server: FastifyInstance) {
       return '#EXTM3U\n# Unauthorized';
     }
 
-    const relayBase = env.STREAM_RELAY_BASE_URL;
+    const relayBase = env.PUBLIC_BASE_URL || 'http://localhost:8080';
     const streams = type === 'm3u_plus'
       ? [...bundle.snapshot.live, ...bundle.snapshot.vod, ...bundle.snapshot.series]
       : bundle.snapshot.live;

@@ -45,7 +45,6 @@ const schema = z.object({
   HOST: z.string().default('0.0.0.0'),
   DATA_ROOT: z.string().default('./data'),
   PUBLIC_BASE_URL: z.string().url().default('http://localhost:8080'),
-  STREAM_RELAY_BASE_URL: z.string().url().default('http://localhost:8090'),
   XTREAM_USERNAME: z.string().optional(),
   XTREAM_PASSWORD: z.string().optional(),
   XTREAM_BASE_URL: z.string().url().optional(),

@@ -1,90 +1,88 @@
-# Deploy su Render.com
+# Deploy su Fly.io
 
-Guida semplice per deployare la piattaforma Xstream su Render.com.
+Guida semplice per deployare il servizio unificato Xstream su Fly.io.
 
 ## Prerequisiti
 
-- Account su [Render.com](https://render.com) (gratuito)
-- Repository Git (GitHub/GitLab/Bitbucket) con il codice
-- Credenziali Xtream (URL, username, password)
+- Account Fly.io (gratuito) -> https://fly.io
+- CLI Fly installata: `brew install flyctl` oppure `curl -L https://fly.io/install.sh | sh`
+- Login: `fly auth login`
 
-## Setup Rapido
+## Setup
 
-### 1. Push del Codice
+### 1. Crea l'app con il wizard
 
-Assicurati che il codice sia su GitHub/GitLab/Bitbucket.
+Dalla root del progetto:
 
-### 2. Deploy Automatico (Blueprint)
-
-1. Vai su [Render Dashboard](https://dashboard.render.com)
-2. Clicca **"New"** → **"Blueprint"**
-3. Connetti il tuo repository
-4. Render leggerà automaticamente `render.yaml` e creerà **due servizi**:
-   - **xstream-api** (API Fastify + ingest on boot)
-   - **xstream-relay** (Stream proxy Go)
-
-### 3. Configurazione Environment Variables
-
-Per ogni servizio, vai in **Environment** e aggiungi:
-
-#### Per xstream-api
-```
-PORT=8080
-HOST=0.0.0.0
-DATA_ROOT=/app/data
-PUBLIC_BASE_URL=https://xstream-api.onrender.com
-STREAM_RELAY_BASE_URL=https://xstream-relay.onrender.com
-XTREAM_BASE_URL=https://tuo-server-xtream.com
-XTREAM_USERNAME=tuo-username
-XTREAM_PASSWORD=tua-password
+```bash
+fly launch --name xserver --region fra --no-deploy
 ```
 
-> Nota: il `Dockerfile.api` esegue automaticamente `pnpm --filter @xstream/ingest ingest` prima di avviare l'API, quindi non serve un servizio ingest separato.
+Durante il wizard:
+- Quando chiede "Would you like to deploy now?" rispondi **n** (No)
+- Scegli "Machines" come piattaforma se richiesto
+- Non modificare il file quando propone di aprirlo
 
-#### Per xstream-relay
+### 2. Crea il volume per la cache
+
+```bash
+fly volumes create xserver_data --size 3 --region fra --app xserver
 ```
-STREAM_RELAY_PORT=8090
-XTREAM_BASE_URL=https://tuo-server-xtream.com
-XTREAM_USERNAME=tuo-username
-XTREAM_PASSWORD=tua-password
+
+### 3. Imposta i secrets
+
+```bash
+fly secrets set \
+  XTREAM_BASE_URL="https://tuo-server-xtream.com" \
+  XTREAM_USERNAME="tuo-username" \
+  XTREAM_PASSWORD="tua-password" \
+  PUBLIC_BASE_URL="https://xserver.fly.dev" \
+  --app xserver
 ```
 
-### 4. Flusso di Deploy
+### 4. Deploy
 
-1. Render builda l'immagine Docker.
-2. Al boot dell'API, viene eseguito l'ingest che scarica playlist/EPG localmente.
-3. L'API parte e serve i dati appena generati.
-4. Il relay resta attivo per proxare gli stream.
-
-### 5. Aggiornare i Dati Periodicamente
-
-- Ogni nuovo deploy o riavvio esegue automaticamente l'ingest.
-- Per forzare un aggiornamento, puoi usare un **Deploy Hook** di Render e richiamarlo da un cron esterno (es. [cron-job.org](https://cron-job.org)).
-- Frequenza consigliata: ogni 30-60 minuti, in base a quanto spesso cambiano le playlist.
-
-### 6. Verifica
-
-1. **API Health**: `https://xstream-api.onrender.com/health`
-2. **Relay Health**: `https://xstream-relay.onrender.com/health`
-3. **Test API**: `https://xstream-api.onrender.com/player_api.php?username=USER&password=PASS`
-
-### 7. Configurazione Client IPTV
-
-Usa questo URL come server Xtream nei tuoi client:
+```bash
+fly deploy --app xserver --ha=false
 ```
-https://xstream-api.onrender.com
+
+L'opzione `--ha=false` evita che Fly crei subito due macchine (una e' sufficiente per iniziare).
+
+## Verifica
+
+```bash
+# Health check
+curl https://xserver.fly.dev/health
+
+# Test API
+curl "https://xserver.fly.dev/player_api.php?username=USER&password=PASS"
+
+# Test relay (via proxy interno)
+curl -I "https://xserver.fly.dev/live/USER/PASS/STREAM_ID.m3u8"
 ```
-Username/Password sono quelli impostati in `XTREAM_USERNAME` e `XTREAM_PASSWORD`.
 
-## Note Importanti
+## Configurazione Client IPTV
 
-- Piano **free** Render: nessuna carta richiesta. Il filesystem è effimero; l'ingest gira ad ogni avvio per rigenerare i dati.
-- Se vuoi persistenza anche across reboot senza ingest, valuta piani a pagamento o un VPS.
-- Il relay usa sempre le credenziali Xtream interne: non vengono esposte agli utenti finali.
+Usa questi dati nei tuoi client IPTV:
 
-## Troubleshooting
+- **Server URL**: `https://xserver.fly.dev`
+- **Username**: (quello configurato in `XTREAM_USERNAME`)
+- **Password**: (quello configurato in `XTREAM_PASSWORD`)
 
-- **API restituisce 503**: il primo avvio richiede tempo per completare l'ingest. Aspetta qualche secondo/minuto.
-- **Playlist vuote**: forza un redeploy dell'API o verifica le credenziali Xtream.
-- **Stream non partono**: controlla che `STREAM_RELAY_BASE_URL` punti correttamente al relay e che quest'ultimo sia up.
-- **Aggiornamenti lenti**: aumenta la frequenza dei cron che richiamano il Deploy Hook dell'API.
+## Aggiornamenti
+
+Per aggiornare il servizio dopo modifiche al codice:
+
+```bash
+fly deploy --app xserver
+```
+
+Il deploy esegue automaticamente l'ingest all'avvio, quindi i dati vengono sempre rigenerati.
+
+## Note
+
+- Il servizio unificato include API + Relay in un solo container
+- Il relay Go gira su localhost:8090 e viene proxato da Fastify
+- Tutte le richieste esterne vanno su porta 8080 (esposta da Fly)
+- Il volume `xserver_data` conserva la cache tra i riavvii
+

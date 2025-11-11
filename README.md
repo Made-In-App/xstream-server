@@ -5,39 +5,34 @@ Piattaforma per replicare e servire un account Xtream Codes da più dispositivi 
 ## Come Funziona
 
 1. **Ingest**: Scarica periodicamente playlist e metadati dal server Xtream originale
-2. **API**: Serve i dati cached con endpoint compatibili Xtream
+2. **API**: Serve i dati cached con endpoint compatibili Xtream (`player_api.php`, `get.php`, `xmltv.php`)
 3. **Relay**: Fa proxy degli stream, mantenendo una sola connessione upstream per canale
 
 Risultato: più dispositivi possono usare lo stesso account Xtream senza problemi di connessioni multiple.
 
-## Architettura
+## Architettura Unificata
 
+Il servizio è unificato in un solo container che include:
 - **packages/ingest**: Job che scarica dati dal server Xtream
 - **packages/core**: Tipi condivisi
-- **apps/api**: Server Fastify con API compatibili Xtream
-- **apps/stream-relay**: Proxy Go per streaming multi-client
+- **apps/api**: Server Fastify con API compatibili Xtream + proxy interno al relay
+- **apps/stream-relay**: Proxy Go per streaming multi-client (gira su localhost:8090)
+
+Tutto esposto su una sola porta (8080) e un solo servizio Fly.io.
 
 ## Quick Start
 
 Vedi [SETUP.md](./SETUP.md) per setup locale.
 
-Vedi [DEPLOY.md](./DEPLOY.md) per deploy su Render.com.
-
 ## Requisiti
 
 - Node.js 18.18+
 - pnpm
-- Go 1.22+ (solo per test locale del relay)
+- Go 1.22+ (solo per build del relay)
 
 ## Deploy
 
-Il progetto è configurato per **Render.com** (gratuito). Vercel non è più utilizzato perché:
-
-- **Render.com** supporta persistent disk (necessario per condividere dati tra API e Ingest)
-- **Render.com** supporta container Docker completi (necessario per il relay Go)
-- **Render.com** ha un free tier che include storage persistente
-
-Vedi [DEPLOY.md](./DEPLOY.md) per istruzioni complete.
+Vedi [DEPLOY.md](./DEPLOY.md) per istruzioni di deploy su Fly.io.
 
 ## Licenza
 

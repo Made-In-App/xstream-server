@@ -17,7 +17,7 @@ await server.register(rateLimit, {
   timeWindow: '1 minute',
 });
 
-registerRoutes(server);
+await registerRoutes(server);
 
 const port = env.PORT;
 const host = env.HOST;
