@@ -14,8 +14,8 @@
     "allowSyntheticDefaultImports": true,
     "baseUrl": "./",
     "paths": {
-      "@xstream/core": ["packages/core/src/index.ts"],
-      "@xstream/core/*": ["packages/core/src/*"]
+      "@xstream/core": ["packages/core/dist/index.d.ts"],
+      "@xstream/core/*": ["packages/core/dist/*"]
     }
   }
 }
