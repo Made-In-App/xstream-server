@@ -2,14 +2,14 @@ FROM golang:1.22-alpine AS builder
 
 WORKDIR /app
 
-# Copy go mod files
-COPY go.mod go.sum* ./
+# Copy go module files
+COPY go.mod go.sum ./
 
-# Download dependencies
-RUN go mod download
-
-# Copy source
+# Copy source code
 COPY main.go ./
+
+# Ensure module dependencies and sums are up to date
+RUN go mod tidy
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o stream-relay .
