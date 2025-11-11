@@ -53,5 +53,5 @@ WORKDIR /app/apps/api
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "node ../ingest/dist/index.js && node dist/index.js"]
+CMD ["sh", "-c", "node ../packages/ingest/dist/index.js && node dist/index.js"]
 
