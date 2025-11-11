@@ -33,6 +33,7 @@ WORKDIR /app
 # Copy workspace files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/core/package.json ./packages/core/
+COPY packages/ingest/package.json ./packages/ingest/
 COPY apps/api/package.json ./apps/api/
 
 # Install pnpm
@@ -49,9 +50,9 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 # Create data directory (temporaneo, rigenerato ad ogni avvio)
 RUN mkdir -p /app/data
 
-WORKDIR /app/apps/api
+WORKDIR /app
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "node ../packages/ingest/dist/index.js && node dist/index.js"]
+CMD ["sh", "-c", "pnpm --filter @xstream/ingest run ingest || node packages/ingest/dist/index.js; pnpm --filter api run start"]
 
