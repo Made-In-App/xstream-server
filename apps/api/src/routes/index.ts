@@ -89,7 +89,7 @@ export async function registerRoutes(server: FastifyInstance) {
     const relayBase = env.PUBLIC_BASE_URL || 'http://localhost:8080';
 
     if (!action || action === '') {
-      return {
+    return {
         user_info: {
           username,
           password,

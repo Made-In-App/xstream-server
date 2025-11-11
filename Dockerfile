@@ -3,10 +3,12 @@ FROM golang:1.22-alpine AS relay-builder
 
 WORKDIR /app/relay
 
-COPY apps/stream-relay/go.mod apps/stream-relay/go.sum* ./
+COPY apps/stream-relay/go.mod ./
 COPY apps/stream-relay/main.go ./
 
-RUN go mod tidy && go mod download
+# Rigenera go.sum e scarica dipendenze
+RUN go mod tidy
+RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o stream-relay .
 
 # Multi-stage build: Node.js API
@@ -23,8 +25,8 @@ COPY apps/api/package.json ./apps/api/
 # Install pnpm
 RUN npm install -g pnpm
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Install dependencies (aggiorna lockfile se necessario)
+RUN pnpm install
 
 # Copy source code
 COPY packages/core ./packages/core

@@ -37,7 +37,7 @@ if (fs.existsSync(envPath)) {
   }
 } else {
   // Fallback: try default dotenv.config()
-  dotenv.config();
+dotenv.config();
 }
 
 const schema = z.object({

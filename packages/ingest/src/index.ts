@@ -108,8 +108,8 @@ export async function run() {
 
 const __filename = fileURLToPath(import.meta.url);
 if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
-  run().catch((error) => {
-    logger.error(error, 'Ingest cycle failed');
-    process.exit(1);
-  });
+run().catch((error) => {
+  logger.error(error, 'Ingest cycle failed');
+  process.exit(1);
+});
 }
