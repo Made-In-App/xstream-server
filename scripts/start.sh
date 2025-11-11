@@ -3,11 +3,17 @@ set -e
 
 echo "[start] Starting Xstream unified service..."
 
-# Step 1: Run ingest to populate cache
-echo "[start] Running ingest..."
-if ! node packages/ingest/dist/index.js; then
-  echo "[start] WARNING: Ingest failed, continuing anyway..."
-fi
+# Step 1: Start ingest loop in background (scarica M3U periodicamente)
+echo "[start] Starting ingest loop in background..."
+node packages/ingest/dist/ingest-loop.js &
+INGEST_PID=$!
+
+# Trap to kill ingest on exit
+trap "kill $INGEST_PID 2>/dev/null || true" EXIT
+
+# Wait a moment for first ingest to start
+sleep 5
+echo "[start] ✓ Ingest loop started (PID: $INGEST_PID)"
 
 # Step 2: Wait for required environment variables (secrets from Fly.io)
 echo "[start] Waiting for environment variables..."

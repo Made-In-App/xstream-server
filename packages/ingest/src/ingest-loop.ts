@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'url';
+import path from 'path';
 import { logger } from './lib/logger.js';
 import { run } from './index.js';
 
@@ -21,7 +23,9 @@ async function runLoop() {
   }, intervalMs);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Esegui il loop se questo file viene chiamato direttamente
+const __filename = fileURLToPath(import.meta.url);
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
   runLoop().catch((error) => {
     logger.error(error, 'Ingest loop failed');
     process.exit(1);
