@@ -9,6 +9,11 @@ primary_region = "fra"
   HOST = "0.0.0.0"
   DATA_ROOT = "/app/data"
   STREAM_RELAY_PORT = "8090"
+  # Xtream credentials (da .env.fly - aggiorna questi valori)
+  XTREAM_BASE_URL = "https://fn2ilpirata.rearc.xn--t60b56a"
+  XTREAM_USERNAME = "Emmgen2"
+  XTREAM_PASSWORD = "gJWB28F"
+  PUBLIC_BASE_URL = "https://xstream-server.fly.dev"
 
 [mounts]
   source = "xstream_data"

@@ -61,28 +61,9 @@ echo "[5/7] Eseguendo deploy..."
 cd "$(dirname "$0")/.."
 fly deploy --app $APP_NAME --ha=false
 
-# 6. Imposta secrets DOPO il deploy (quando c'è già un'immagine)
-echo "[6/7] Impostando secrets..."
-if [ -n "$XTREAM_BASE_URL" ] && [ -n "$XTREAM_USERNAME" ] && [ -n "$XTREAM_PASSWORD" ]; then
-  fly secrets set \
-    XTREAM_BASE_URL="$XTREAM_BASE_URL" \
-    XTREAM_USERNAME="$XTREAM_USERNAME" \
-    XTREAM_PASSWORD="$XTREAM_PASSWORD" \
-    PUBLIC_BASE_URL="https://${APP_NAME}.fly.dev" \
-    --app $APP_NAME
-  echo "  ✓ Secrets impostati"
-  echo "  Riavviando macchine per applicare secrets..."
-  sleep 3
-  # Riavvia tutte le macchine per applicare i secrets
-  fly machine list --app $APP_NAME | grep "machine" | awk '{print $1}' | while read machine_id; do
-    [ -n "$machine_id" ] && fly machine restart "$machine_id" --app $APP_NAME 2>/dev/null || true
-  done
-  echo "  ✓ Macchine riavviate"
-else
-  echo "⚠️  Variabili non trovate in .env.fly, imposta manualmente:"
-  echo "fly secrets set XTREAM_BASE_URL=... XTREAM_USERNAME=... XTREAM_PASSWORD=... PUBLIC_BASE_URL=https://${APP_NAME}.fly.dev --app $APP_NAME"
-  exit 1
-fi
+# 6. Variabili già nel fly.toml, nessun bisogno di secrets
+echo "[6/7] Variabili d'ambiente configurate in fly.toml"
+echo "  ✓ Le variabili XTREAM_* sono già nel fly.toml e verranno iniettate automaticamente"
 
 # 7. Rimuovi macchina temporanea se esiste
 echo "[7/7] Pulizia macchina temporanea..."
