@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'url';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { env } from './lib/env.js';
@@ -19,7 +20,7 @@ async function ensureDir(dir: string) {
   await fs.mkdir(dir, { recursive: true });
 }
 
-async function run() {
+export async function run() {
   logger.info('Starting ingest cycle');
 
   const root = path.resolve(env.STORAGE_ROOT);
@@ -105,7 +106,10 @@ async function run() {
   logger.info({ root, files: outputs.map((o) => o.file) }, 'Ingest cycle completed');
 }
 
-run().catch((error) => {
-  logger.error(error, 'Ingest cycle failed');
-  process.exit(1);
-});
+const __filename = fileURLToPath(import.meta.url);
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+  run().catch((error) => {
+    logger.error(error, 'Ingest cycle failed');
+    process.exit(1);
+  });
+}

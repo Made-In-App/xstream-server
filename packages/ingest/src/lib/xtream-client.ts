@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+import fetch, { RequestInit as NodeFetchRequestInit } from 'node-fetch';
 import { env } from './env.js';
 import { logger } from './logger.js';
 
@@ -7,7 +7,7 @@ type FetchParams = {
   extra?: Record<string, string>;
 };
 
-async function request(path: string, init?: RequestInit) {
+async function request(path: string, init?: NodeFetchRequestInit) {
   const url = new URL(path, env.XTREAM_BASE_URL);
   url.searchParams.set('username', env.XTREAM_USERNAME);
   url.searchParams.set('password', env.XTREAM_PASSWORD);
