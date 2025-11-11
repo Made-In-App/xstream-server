@@ -5,6 +5,7 @@ WORKDIR /app
 # Copy workspace files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/core/package.json ./packages/core/
+COPY packages/ingest/package.json ./packages/ingest/
 COPY apps/api/package.json ./apps/api/
 
 # Install pnpm
@@ -15,6 +16,7 @@ RUN pnpm install --frozen-lockfile
 
 # Copy source code
 COPY packages/core ./packages/core
+COPY packages/ingest ./packages/ingest
 COPY apps/api ./apps/api
 COPY tsconfig.base.json ./
 
