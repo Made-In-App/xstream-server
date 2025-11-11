@@ -20,6 +20,7 @@ COPY tsconfig.base.json ./
 
 # Build
 RUN pnpm --filter @xstream/core build
+RUN pnpm --filter @xstream/ingest build
 RUN pnpm --filter api build
 
 # Runtime stage
