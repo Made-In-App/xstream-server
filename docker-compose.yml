@@ -1,0 +1,33 @@
+version: "3"
+services:
+  iptv-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      # If your are using local m3u file instead of m3u remote file
+      # put your m3u file in this folder
+      - ./iptv:/root/iptv
+    container_name: "iptv-proxy"
+    restart: unless-stopped
+    ports:
+       # have to be the same as ENV variable PORT
+      - 8080:8080
+    environment:
+      # URL remoto m3u/m3u8 del provider originale (usato da root.go per scaricare la lista)
+      M3U_URL: "https://fn2ilpirata.rearc.xn--t60b56a/get.php?username=Emmgen2&password=gJWB28F&type=m3u_plus&output=m3u8"
+      # Se vuoi usare un file locale, commenta M3U_URL sopra e monta il file in ./iptv/iptv.m3u
+      # Port to expose the IPTVs endpoints
+      PORT: 8080
+      # Hostname or IP to expose the IPTVs endpoints (for machine not for docker)
+      HOSTNAME: 84.8.248.50
+      GIN_MODE: release
+      ## Xtream-code proxy configuration
+      XTREAM_USER: Emmgen2
+      XTREAM_PASSWORD: gJWB28F
+      XTREAM_BASE_URL: "https://fn2ilpirata.rearc.xn--t60b56a"
+      ##### UNSAFE AUTH TODO ADD REAL AUTH
+      #will be used for m3u and xtream auth poxy
+      USER: test
+      PASSWORD: testpassword
+
