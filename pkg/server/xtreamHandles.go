@@ -45,6 +45,10 @@ type cacheMeta struct {
 var hlsChannelsRedirectURL map[string]url.URL = map[string]url.URL{}
 var hlsChannelsRedirectURLLock = sync.RWMutex{}
 
+// Round-robin counter per selezione server
+var xtreamServerCounter int64 = 0
+var xtreamServerCounterLock = sync.Mutex{}
+
 // XXX Use key/value storage e.g: etcd, redis...
 // and remove that dirty globals
 var xtreamM3uCache map[string]cacheMeta = map[string]cacheMeta{}
@@ -290,11 +294,54 @@ func (c *Config) xtreamXMLTV(ctx *gin.Context) {
 	ctx.Data(http.StatusOK, "application/xml", resp)
 }
 
+// selectXtreamServer seleziona un server Xtream disponibile dalla lista usando round-robin
+func (c *Config) selectXtreamServer() string {
+	if len(c.XtreamBaseURLs) == 0 {
+		return c.XtreamBaseURL
+	}
+	
+	xtreamServerCounterLock.Lock()
+	serverIndex := int(xtreamServerCounter % int64(len(c.XtreamBaseURLs)))
+	xtreamServerCounter++
+	xtreamServerCounterLock.Unlock()
+	
+	return c.XtreamBaseURLs[serverIndex]
+}
+
+// hasCredentialsInURL controlla se l'URL contiene già username/password nel path
+func hasCredentialsInURL(baseURL string) bool {
+	parsed, err := url.Parse(baseURL)
+	if err != nil {
+		return false
+	}
+	// Se il path ha più di 2 segmenti (es: /username/password), contiene credenziali
+	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+	return len(parts) >= 2
+}
+
 func (c *Config) xtreamStreamHandler(ctx *gin.Context) {
 	id := ctx.Param("id")
-	rpURL, err := url.Parse(fmt.Sprintf("%s/%s/%s/%s", c.XtreamBaseURL, c.XtreamUser, c.XtreamPassword, id))
+	baseURL := c.selectXtreamServer()
+	
+	// Se l'URL base contiene già username/password (per redirect mode con account multipli)
+	// usa direttamente quell'URL, altrimenti costruiscilo
+	var rpURL *url.URL
+	var err error
+	if hasCredentialsInURL(baseURL) {
+		// URL base contiene già credenziali
+		rpURL, err = url.Parse(fmt.Sprintf("%s/%s", baseURL, id))
+	} else {
+		// Costruisci URL con credenziali
+		rpURL, err = url.Parse(fmt.Sprintf("%s/%s/%s/%s", baseURL, c.XtreamUser, c.XtreamPassword, id))
+	}
+	
 	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
+		return
+	}
+
+	if c.RedirectMode {
+		ctx.Redirect(http.StatusFound, rpURL.String())
 		return
 	}
 
@@ -303,9 +350,25 @@ func (c *Config) xtreamStreamHandler(ctx *gin.Context) {
 
 func (c *Config) xtreamStreamLive(ctx *gin.Context) {
 	id := ctx.Param("id")
-	rpURL, err := url.Parse(fmt.Sprintf("%s/live/%s/%s/%s", c.XtreamBaseURL, c.XtreamUser, c.XtreamPassword, id))
+	baseURL := c.selectXtreamServer()
+	
+	var rpURL *url.URL
+	var err error
+	if hasCredentialsInURL(baseURL) {
+		// URL base contiene già credenziali
+		rpURL, err = url.Parse(fmt.Sprintf("%s/live/%s", baseURL, id))
+	} else {
+		// Costruisci URL con credenziali
+		rpURL, err = url.Parse(fmt.Sprintf("%s/live/%s/%s/%s", baseURL, c.XtreamUser, c.XtreamPassword, id))
+	}
+	
 	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
+		return
+	}
+
+	if c.RedirectMode {
+		ctx.Redirect(http.StatusFound, rpURL.String())
 		return
 	}
 
@@ -325,12 +388,28 @@ func (c *Config) xtreamStreamPlay(ctx *gin.Context) {
 }
 
 func (c *Config) xtreamStreamTimeshift(ctx *gin.Context) {
+	baseURL := c.selectXtreamServer()
 	duration := ctx.Param("duration")
 	start := ctx.Param("start")
 	id := ctx.Param("id")
-	rpURL, err := url.Parse(fmt.Sprintf("%s/timeshift/%s/%s/%s/%s/%s", c.XtreamBaseURL, c.XtreamUser, c.XtreamPassword, duration, start, id))
+	
+	var rpURL *url.URL
+	var err error
+	if hasCredentialsInURL(baseURL) {
+		// URL base contiene già credenziali
+		rpURL, err = url.Parse(fmt.Sprintf("%s/timeshift/%s/%s/%s", baseURL, duration, start, id))
+	} else {
+		// Costruisci URL con credenziali
+		rpURL, err = url.Parse(fmt.Sprintf("%s/timeshift/%s/%s/%s/%s/%s", baseURL, c.XtreamUser, c.XtreamPassword, duration, start, id))
+	}
+	
 	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
+		return
+	}
+
+	if c.RedirectMode {
+		ctx.Redirect(http.StatusFound, rpURL.String())
 		return
 	}
 
@@ -339,9 +418,25 @@ func (c *Config) xtreamStreamTimeshift(ctx *gin.Context) {
 
 func (c *Config) xtreamStreamMovie(ctx *gin.Context) {
 	id := ctx.Param("id")
-	rpURL, err := url.Parse(fmt.Sprintf("%s/movie/%s/%s/%s", c.XtreamBaseURL, c.XtreamUser, c.XtreamPassword, id))
+	baseURL := c.selectXtreamServer()
+	
+	var rpURL *url.URL
+	var err error
+	if hasCredentialsInURL(baseURL) {
+		// URL base contiene già credenziali
+		rpURL, err = url.Parse(fmt.Sprintf("%s/movie/%s", baseURL, id))
+	} else {
+		// Costruisci URL con credenziali
+		rpURL, err = url.Parse(fmt.Sprintf("%s/movie/%s/%s/%s", baseURL, c.XtreamUser, c.XtreamPassword, id))
+	}
+	
 	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
+		return
+	}
+
+	if c.RedirectMode {
+		ctx.Redirect(http.StatusFound, rpURL.String())
 		return
 	}
 
@@ -350,9 +445,25 @@ func (c *Config) xtreamStreamMovie(ctx *gin.Context) {
 
 func (c *Config) xtreamStreamSeries(ctx *gin.Context) {
 	id := ctx.Param("id")
-	rpURL, err := url.Parse(fmt.Sprintf("%s/series/%s/%s/%s", c.XtreamBaseURL, c.XtreamUser, c.XtreamPassword, id))
+	baseURL := c.selectXtreamServer()
+	
+	var rpURL *url.URL
+	var err error
+	if hasCredentialsInURL(baseURL) {
+		// URL base contiene già credenziali
+		rpURL, err = url.Parse(fmt.Sprintf("%s/series/%s", baseURL, id))
+	} else {
+		// Costruisci URL con credenziali
+		rpURL, err = url.Parse(fmt.Sprintf("%s/series/%s/%s/%s", baseURL, c.XtreamUser, c.XtreamPassword, id))
+	}
+	
 	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
+		return
+	}
+
+	if c.RedirectMode {
+		ctx.Redirect(http.StatusFound, rpURL.String())
 		return
 	}
 

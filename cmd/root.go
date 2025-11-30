@@ -68,6 +68,17 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
+		// Parse Xtream base URLs list
+		xtreamBaseURLs := []string{}
+		if xtreamBaseURLsStr := viper.GetString("xtream-base-urls"); xtreamBaseURLsStr != "" {
+			for _, url := range strings.Split(xtreamBaseURLsStr, ",") {
+				url = strings.TrimSpace(url)
+				if url != "" {
+					xtreamBaseURLs = append(xtreamBaseURLs, url)
+				}
+			}
+		}
+
 		conf := &config.ProxyConfig{
 			HostConfig: &config.HostConfiguration{
 				Hostname: viper.GetString("hostname"),
@@ -77,6 +88,8 @@ var rootCmd = &cobra.Command{
 			XtreamUser:           config.CredentialString(xtreamUser),
 			XtreamPassword:       config.CredentialString(xtreamPassword),
 			XtreamBaseURL:        xtreamBaseURL,
+			XtreamBaseURLs:       xtreamBaseURLs,
+			RedirectMode:         viper.GetBool("redirect-mode"),
 			M3UCacheExpiration:   viper.GetInt("m3u-cache-expiration"),
 			User:                 config.CredentialString(viper.GetString("user")),
 			Password:             config.CredentialString(viper.GetString("password")),
@@ -132,6 +145,8 @@ func init() {
 	rootCmd.Flags().String("xtream-user", "", "Xtream-code user login")
 	rootCmd.Flags().String("xtream-password", "", "Xtream-code password login")
 	rootCmd.Flags().String("xtream-base-url", "", "Xtream-code base url e.g(http://expample.tv:8080)")
+	rootCmd.Flags().String("xtream-base-urls", "", "Comma-separated list of Xtream servers for load balancing e.g(http://server1:8080,http://server2:8080)")
+	rootCmd.Flags().Bool("redirect-mode", false, "Use HTTP redirect instead of reverse proxy (streams go directly from Xtream to client)")
 	rootCmd.Flags().Int("m3u-cache-expiration", 1, "M3U cache expiration in hour")
 	rootCmd.Flags().BoolP("xtream-api-get", "", false, "Generate get.php from xtream API instead of get.php original endpoint")
 

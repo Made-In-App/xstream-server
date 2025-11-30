@@ -60,7 +60,10 @@ func NewServer(config *config.ProxyConfig) (*Config, error) {
 		var err error
 		p, err = m3u.Parse(config.RemoteURL.String())
 		if err != nil {
-			return nil, err
+			// Log l'errore ma continua (utile se l'URL non è disponibile all'avvio)
+			log.Printf("[iptv-proxy] WARNING: Unable to parse M3U from URL %s: %v. Server will start but M3U endpoint may not work until URL is accessible.", config.RemoteURL.String(), err)
+			// Crea una playlist vuota invece di fallire
+			p = m3u.Playlist{}
 		}
 	}
 

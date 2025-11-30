@@ -66,12 +66,18 @@ func (c *Config) xtreamRoutes(r *gin.RouterGroup) {
 	r.GET(fmt.Sprintf("/hlsr/:token/%s/%s/:channel/:hash/:chunk", c.User, c.Password), c.xtreamHlsrStream)
 	r.GET("/hls/:token/:chunk", c.xtreamHlsStream)
 	r.GET("/play/:token/:type", c.xtreamStreamPlay)
+	// Endpoint per backup.m3u
+	r.GET("/backup.m3u", c.authenticate, c.getBackupM3U)
+	r.POST("/backup.m3u", c.authenticate, c.getBackupM3U)
 }
 
 func (c *Config) m3uRoutes(r *gin.RouterGroup) {
 	r.GET("/"+c.M3UFileName, c.authenticate, c.getM3U)
 	// XXX Private need: for external Android app
 	r.POST("/"+c.M3UFileName, c.authenticate, c.getM3U)
+	// Endpoint per backup.m3u
+	r.GET("/backup.m3u", c.authenticate, c.getBackupM3U)
+	r.POST("/backup.m3u", c.authenticate, c.getBackupM3U)
 
 	for i, track := range c.playlist.Tracks {
 		trackConfig := &Config{

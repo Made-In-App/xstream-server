@@ -15,7 +15,8 @@ services:
       - 8080:8080
     environment:
       # URL remoto m3u/m3u8 del provider originale (usato da root.go per scaricare la lista)
-      M3U_URL: "https://fn2ilpirata.rearc.xn--t60b56a/get.php?username=Emmgen2&password=gJWB28F&type=m3u_plus&output=m3u8"
+      # Usa il primo account per scaricare la playlist
+      M3U_URL: "http://my.splayer.in/get.php?username=notv_3wtj4u&password=7hj6me14&type=m3u_plus&output=m3u8"
       # Se vuoi usare un file locale, commenta M3U_URL sopra e monta il file in ./iptv/iptv.m3u
       # Port to expose the IPTVs endpoints
       PORT: 8080
@@ -23,11 +24,17 @@ services:
       HOSTNAME: 84.8.248.50
       GIN_MODE: release
       ## Xtream-code proxy configuration
-      XTREAM_USER: Emmgen2
-      XTREAM_PASSWORD: gJWB28F
-      XTREAM_BASE_URL: "https://fn2ilpirata.rearc.xn--t60b56a"
+      # Account principale usato per le API calls (player_api.php, get.php)
+      XTREAM_USER: notv_3wtj4u
+      XTREAM_PASSWORD: 7hj6me14
+      XTREAM_BASE_URL: "http://my.splayer.in"
+      # Lista di 5 server Xtream per load balancing con redirect
+      # Ogni URL include già username/password nel path per il redirect diretto
+      XTREAM_BASE_URLS: "http://my.splayer.in/notv_3wtj4u/7hj6me14,http://my.splayer.in/notv_sgfqbh/gd2wwgpy,http://my.splayer.in/notv_rv33bz/av5y411a,http://my.splayer.in/notv_71d762/qgjjhnty,http://my.splayer.in/notv_93me22/x7g35zhh"
+      # Modalità redirect: true = redirect HTTP (flusso diretto, non passa dal proxy)
+      REDIRECT_MODE: "true"
       ##### UNSAFE AUTH TODO ADD REAL AUTH
       #will be used for m3u and xtream auth poxy
-      USER: test
-      PASSWORD: testpassword
+      USER: amici
+      PASSWORD: P3zz0tt0N0str0
 

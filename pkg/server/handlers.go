@@ -40,6 +40,13 @@ func (c *Config) getM3U(ctx *gin.Context) {
 	ctx.File(c.proxyfiedM3UPath)
 }
 
+func (c *Config) getBackupM3U(ctx *gin.Context) {
+	backupPath := "/root/iptv/backup.m3u"
+	ctx.Header("Content-Disposition", `attachment; filename="backup.m3u"`)
+	ctx.Header("Content-Type", "application/octet-stream")
+	ctx.File(backupPath)
+}
+
 func (c *Config) reverseProxy(ctx *gin.Context) {
 	rpURL, err := url.Parse(c.track.URI)
 	if err != nil {

@@ -47,6 +47,7 @@ type ProxyConfig struct {
 	XtreamUser           CredentialString
 	XtreamPassword       CredentialString
 	XtreamBaseURL        string
+	XtreamBaseURLs       []string // Lista di server Xtream per load balancing
 	XtreamGenerateApiGet bool
 	M3UCacheExpiration   int
 	M3UFileName          string
@@ -56,4 +57,5 @@ type ProxyConfig struct {
 	AdvertisedPort       int
 	HTTPS                bool
 	User, Password       CredentialString
+	RedirectMode         bool // Se true, fa redirect invece di reverse proxy
 }
