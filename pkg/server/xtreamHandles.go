@@ -27,6 +27,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -53,6 +54,17 @@ var xtreamServerCounterLock = sync.Mutex{}
 // and remove that dirty globals
 var xtreamM3uCache map[string]cacheMeta = map[string]cacheMeta{}
 var xtreamM3uCacheLock = sync.RWMutex{}
+
+// Cache per il backup.m3u parsato
+var backupM3uCache *m3u.Playlist = nil
+var backupM3uCacheTime time.Time
+var backupM3uCacheLock = sync.RWMutex{}
+const backupM3uCacheDuration = 1 * time.Hour // Cache per 1 ora
+
+// Cache per mappare streamID -> direct_source per backup account
+var backupStreamIDCache map[int]string = make(map[int]string)
+var backupStreamIDCacheLock = sync.RWMutex{}
+var backupStreamIDCacheTime time.Time
 
 func (c *Config) cacheXtreamM3u(playlist *m3u.Playlist, cacheName string) error {
 	xtreamM3uCacheLock.Lock()
@@ -145,6 +157,14 @@ func (c *Config) xtreamGetAuto(ctx *gin.Context) {
 }
 
 func (c *Config) xtreamGet(ctx *gin.Context) {
+	// Se l'utente è "amici_backup", restituisci il backup.m3u invece di chiamare il server Xtream
+	if username, exists := ctx.Get("authenticated_user"); exists {
+		if usernameStr, ok := username.(string); ok && strings.HasSuffix(usernameStr, "_backup") {
+			c.getBackupM3U(ctx)
+			return
+		}
+	}
+
 	rawURL := fmt.Sprintf("%s/get.php?username=%s&password=%s", c.XtreamBaseURL, c.XtreamUser, c.XtreamPassword)
 
 	q := ctx.Request.URL.Query()
@@ -192,6 +212,14 @@ func (c *Config) xtreamGet(ctx *gin.Context) {
 }
 
 func (c *Config) xtreamApiGet(ctx *gin.Context) {
+	// Se l'utente è "amici_backup", restituisci il backup.m3u invece di chiamare il server Xtream
+	if username, exists := ctx.Get("authenticated_user"); exists {
+		if usernameStr, ok := username.(string); ok && strings.HasSuffix(usernameStr, "_backup") {
+			c.getBackupM3U(ctx)
+			return
+		}
+	}
+
 	const (
 		apiGet = "apiget"
 	)
@@ -254,6 +282,88 @@ func (c *Config) xtreamPlayerAPI(ctx *gin.Context, q url.Values) {
 	var action string
 	if len(q["action"]) > 0 {
 		action = q["action"][0]
+	}
+
+	// Per amici_backup, converti il backup.m3u in formato Xtream API
+	if username, exists := ctx.Get("authenticated_user"); exists {
+		if usernameStr, ok := username.(string); ok && strings.HasSuffix(usernameStr, "_backup") {
+			// Se non c'è azione, restituisci info account
+			if action == "" {
+				ctx.JSON(http.StatusOK, gin.H{
+					"user_info": gin.H{
+						"username": usernameStr,
+						"password": c.ProxyConfig.Password.String(),
+						"message":  "Welcome - Backup account",
+						"auth":     1,
+						"status":   "Active",
+						"exp_date": "9999999999",
+						"is_trial": "0",
+						"active_cons": "0",
+						"created_at": "0",
+						"max_connections": "1",
+						"allowed_output_formats": []string{"m3u8"},
+					},
+					"server_info": gin.H{
+						"url":            c.HostConfig.Hostname,
+						"port":           fmt.Sprintf("%d", c.AdvertisedPort),
+						"https_port":     "",
+						"server_protocol": "http",
+						"rtmp_port":      "0",
+						"timezone":       "Europe/Rome",
+						"timestamp_now":  time.Now().Unix(),
+						"time_now":        time.Now().Format("2006-01-02 15:04:05"),
+						"process":        false,
+					},
+				})
+				return
+			}
+
+			// Per le azioni, leggi il backup.m3u e restituisci i contenuti convertiti
+			backupPlaylist, err := c.loadBackupM3U()
+			if err != nil {
+				log.Printf("[iptv-proxy] Error loading backup.m3u: %v", err)
+				ctx.JSON(http.StatusOK, []interface{}{})
+				return
+			}
+
+			switch action {
+			case "get_live_categories", "get_vod_categories", "get_series_categories":
+				categories, _ := c.extractCategoriesFromM3U(backupPlaylist)
+				ctx.JSON(http.StatusOK, categories)
+				return
+			case "get_live_streams":
+				categoryID := ""
+				if len(q["category_id"]) > 0 {
+					categoryID = q["category_id"][0]
+				}
+				streams := c.convertM3UToLiveStreams(backupPlaylist, categoryID, usernameStr)
+				ctx.JSON(http.StatusOK, streams)
+				return
+			case "get_vod_streams":
+				categoryID := ""
+				if len(q["category_id"]) > 0 {
+					categoryID = q["category_id"][0]
+				}
+				streams := c.convertM3UToVODStreams(backupPlaylist, categoryID, usernameStr)
+				ctx.JSON(http.StatusOK, streams)
+				return
+			case "get_series":
+				categoryID := ""
+				if len(q["category_id"]) > 0 {
+					categoryID = q["category_id"][0]
+				}
+				series := c.convertM3UToSeries(backupPlaylist, categoryID, usernameStr)
+				ctx.JSON(http.StatusOK, series)
+				return
+			case "get_short_epg", "get_simple_data_table":
+				ctx.JSON(http.StatusOK, gin.H{})
+				return
+			default:
+				// Per altre azioni, restituisci risposta vuota
+				ctx.JSON(http.StatusOK, gin.H{})
+				return
+			}
+		}
 	}
 
 	client, err := xtreamapi.New(c.XtreamUser.String(), c.XtreamPassword.String(), c.XtreamBaseURL, ctx.Request.UserAgent())
@@ -346,6 +456,292 @@ func (c *Config) xtreamStreamHandler(ctx *gin.Context) {
 	}
 
 	c.xtreamStream(ctx, rpURL)
+}
+
+// Handler per route backup che restituiscono errore (streaming non disponibile per account backup)
+func (c *Config) xtreamStreamHandlerBackup(ctx *gin.Context) {
+	id := ctx.Param("id")
+	streamID, err := strconv.Atoi(id)
+	if err != nil {
+		ctx.AbortWithError(http.StatusBadRequest, err) // nolint: errcheck
+		return
+	}
+
+	// Carica il backup.m3u e trova lo stream corrispondente
+	backupPlaylist, err := c.loadBackupM3U()
+	if err != nil {
+		log.Printf("[iptv-proxy] Error loading backup.m3u: %v", err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	// Usa la cache per trovare il direct_source
+	backupStreamIDCacheLock.RLock()
+	directSource, exists := backupStreamIDCache[streamID]
+	cacheTime := backupStreamIDCacheTime
+	backupStreamIDCacheLock.RUnlock()
+
+	// Se la cache non esiste o è scaduta, ricostruiscila
+	if !exists || time.Since(cacheTime) >= backupM3uCacheDuration {
+		// Converti in live streams per costruire la cache
+		streams := c.convertM3UToLiveStreams(backupPlaylist, "", "amici_backup")
+		
+		// Aggiorna la cache
+		backupStreamIDCacheLock.Lock()
+		backupStreamIDCache = make(map[int]string)
+		for i, stream := range streams {
+			if ds, ok := stream["direct_source"].(string); ok && ds != "" {
+				backupStreamIDCache[i+1] = ds // streamID inizia da 1
+			}
+		}
+		backupStreamIDCacheTime = time.Now()
+		backupStreamIDCacheLock.Unlock()
+		
+		// Riprova a leggere dalla cache
+		backupStreamIDCacheLock.RLock()
+		directSource, exists = backupStreamIDCache[streamID]
+		backupStreamIDCacheLock.RUnlock()
+	}
+
+	if !exists || directSource == "" {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	// Fai redirect diretto all'URL originale (come REDIRECT_MODE per account normale)
+	rpURL, err := url.Parse(directSource)
+	if err != nil {
+		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
+		return
+	}
+
+	// Redirect diretto all'URL originale, senza passare dal proxy
+	ctx.Redirect(http.StatusFound, rpURL.String())
+}
+
+func (c *Config) xtreamStreamLiveBackup(ctx *gin.Context) {
+	c.xtreamStreamHandlerBackup(ctx)
+}
+
+func (c *Config) xtreamStreamTimeshiftBackup(ctx *gin.Context) {
+	c.xtreamStreamHandlerBackup(ctx)
+}
+
+func (c *Config) xtreamStreamMovieBackup(ctx *gin.Context) {
+	c.xtreamStreamHandlerBackup(ctx)
+}
+
+func (c *Config) xtreamStreamSeriesBackup(ctx *gin.Context) {
+	c.xtreamStreamHandlerBackup(ctx)
+}
+
+func (c *Config) xtreamHlsrStreamBackup(ctx *gin.Context) {
+	c.xtreamStreamHandlerBackup(ctx)
+}
+
+// loadBackupM3U carica e parsa il file backup.m3u con cache
+func (c *Config) loadBackupM3U() (*m3u.Playlist, error) {
+	backupPath := "/root/iptv/backup.m3u"
+	
+	// Controlla la cache
+	backupM3uCacheLock.RLock()
+	if backupM3uCache != nil && time.Since(backupM3uCacheTime) < backupM3uCacheDuration {
+		// Verifica che il file non sia stato modificato
+		fileInfo, err := os.Stat(backupPath)
+		if err == nil {
+			// Se il file è stato modificato dopo la cache, ricarica
+			if fileInfo.ModTime().After(backupM3uCacheTime) {
+				backupM3uCacheLock.RUnlock()
+				// Ricarica il file
+			} else {
+				// Usa la cache
+				playlist := *backupM3uCache
+				backupM3uCacheLock.RUnlock()
+				return &playlist, nil
+			}
+		} else {
+			backupM3uCacheLock.RUnlock()
+		}
+	} else {
+		backupM3uCacheLock.RUnlock()
+	}
+	
+	// Parsa il file
+	backupM3uCacheLock.Lock()
+	defer backupM3uCacheLock.Unlock()
+	
+	// Double-check dopo aver acquisito il lock
+	if backupM3uCache != nil && time.Since(backupM3uCacheTime) < backupM3uCacheDuration {
+		playlist := *backupM3uCache
+		return &playlist, nil
+	}
+	
+	log.Printf("[iptv-proxy] Loading backup.m3u file...")
+	playlist, err := m3u.Parse(backupPath)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Aggiorna la cache
+	backupM3uCache = &playlist
+	backupM3uCacheTime = time.Now()
+	log.Printf("[iptv-proxy] Backup.m3u loaded and cached (%d tracks)", len(playlist.Tracks))
+	
+	return &playlist, nil
+}
+
+// extractCategoriesFromM3U estrae le categorie uniche dal file M3U basandosi su group-title
+// Restituisce sia la lista delle categorie che una mappa category_id -> category_name per lookup veloce
+func (c *Config) extractCategoriesFromM3U(playlist *m3u.Playlist) ([]gin.H, map[string]string) {
+	categoryMap := make(map[string]bool)
+	categoryIDMap := make(map[string]string) // category_id -> category_name
+	categories := []gin.H{}
+
+	for _, track := range playlist.Tracks {
+		groupTitle := ""
+		for _, tag := range track.Tags {
+			if tag.Name == "group-title" {
+				groupTitle = tag.Value
+				break
+			}
+		}
+		if groupTitle != "" && !categoryMap[groupTitle] {
+			categoryMap[groupTitle] = true
+			categoryID := fmt.Sprintf("%d", len(categories)+1)
+			categoryIDMap[categoryID] = groupTitle
+			categories = append(categories, gin.H{
+				"category_id":   categoryID,
+				"category_name": groupTitle,
+				"parent_id":     0,
+			})
+		}
+	}
+
+	return categories, categoryIDMap
+}
+
+// convertM3UToLiveStreams converte i tracks M3U in formato Xtream API per live streams
+func (c *Config) convertM3UToLiveStreams(playlist *m3u.Playlist, categoryID string, username string) []gin.H {
+	streams := []gin.H{}
+	streamID := 1
+
+	// Se non c'è categoryID, limita i risultati per evitare risposte troppo grandi
+	const maxStreamsWithoutCategory = 1000
+	streamCount := 0
+
+	// Carica le categorie una sola volta e crea mappa per lookup veloce
+	var targetCategory string
+	if categoryID != "" {
+		_, categoryIDMap := c.extractCategoriesFromM3U(playlist)
+		if catName, exists := categoryIDMap[categoryID]; exists {
+			targetCategory = catName
+		}
+	}
+
+	for _, track := range playlist.Tracks {
+		// Estrai group-title per filtrare per categoria
+		groupTitle := ""
+		for _, tag := range track.Tags {
+			if tag.Name == "group-title" {
+				groupTitle = tag.Value
+				break
+			}
+		}
+
+		// Se categoryID è specificato, filtra per quella categoria
+		if categoryID != "" && groupTitle != targetCategory {
+			continue
+		}
+
+		// Filtra solo live streams (escludi serie/film VOD)
+		// 1. Escludi URL che contengono /movie/ o /series/ (sono VOD, non live)
+		trackURILower := strings.ToLower(track.URI)
+		if strings.Contains(trackURILower, "/movie/") || strings.Contains(trackURILower, "/series/") {
+			// Salta film/serie VOD - verranno gestiti da get_series/get_vod_streams
+			continue
+		}
+		
+		// 2. Escludi serie/film che hanno pattern specifici nel nome (es. "S01 E01")
+		trackNameLower := strings.ToLower(track.Name)
+		if strings.Contains(trackNameLower, " s0") || strings.Contains(trackNameLower, " e0") || 
+		   strings.Contains(trackNameLower, " season") || strings.Contains(trackNameLower, " episode") ||
+		   (strings.Contains(trackNameLower, " s") && strings.Contains(trackNameLower, " e")) {
+			// Salta serie/film - verranno gestiti da get_series/get_vod_streams
+			continue
+		}
+		
+		// 3. Escludi categorie VOD specifiche (ma mantieni canali live come "Sky Cinema", "Rai Movie")
+		// Le categorie VOD hanno pattern "◈ Film" seguito da altro testo
+		if strings.HasPrefix(groupTitle, "◈ Film") || 
+		   (strings.Contains(groupTitle, "◈") && (strings.Contains(groupTitle, "Film Netflix") || 
+		    strings.Contains(groupTitle, "Film Amazon") || strings.Contains(groupTitle, "Film Thriller") ||
+		    strings.Contains(groupTitle, "Film Romantici") || strings.Contains(groupTitle, "Film Azione"))) {
+			// Salta categorie VOD specifiche
+			continue
+		}
+
+		// Estrai altri tag
+		tvgID := ""
+		tvgName := track.Name
+		tvgLogo := ""
+		for _, tag := range track.Tags {
+			switch tag.Name {
+			case "tvg-id":
+				tvgID = tag.Value
+			case "tvg-name":
+				tvgName = tag.Value
+			case "tvg-logo":
+				tvgLogo = tag.Value
+			}
+		}
+
+		// Costruisci URL proxy per lo streaming (usato nel campo direct_source)
+		stream := gin.H{
+			"num":            streamID,
+			"name":           tvgName,
+			"stream_type":    "live",
+			"stream_id":      streamID,
+			"stream_icon":    tvgLogo,
+			"epg_channel_id": tvgID,
+			"added":          "0",
+			"category_id":   categoryID,
+			"category_name": groupTitle,
+			"container_extension": "m3u8",
+			"custom_sid":     "",
+			"direct_source":  track.URI,
+			"tv_archive":     0,
+			"tv_archive_duration": 0,
+			"stream_url": fmt.Sprintf("http://%s:%d/live/%s/%s/%d", 
+				c.HostConfig.Hostname, 
+				c.AdvertisedPort, 
+				username, 
+				c.ProxyConfig.Password.String(), 
+				streamID),
+		}
+
+		streams = append(streams, stream)
+		streamID++
+		streamCount++
+
+		// Limita i risultati se non c'è categoryID
+		if categoryID == "" && streamCount >= maxStreamsWithoutCategory {
+			break
+		}
+	}
+
+	return streams
+}
+
+// convertM3UToVODStreams converte i tracks M3U in formato Xtream API per VOD streams
+func (c *Config) convertM3UToVODStreams(playlist *m3u.Playlist, categoryID string, username string) []gin.H {
+	// Per ora restituiamo array vuoto, VOD richiede logica diversa
+	return []gin.H{}
+}
+
+// convertM3UToSeries converte i tracks M3U in formato Xtream API per series
+func (c *Config) convertM3UToSeries(playlist *m3u.Playlist, categoryID string, username string) []gin.H {
+	// Per ora restituiamo array vuoto, series richiede logica diversa
+	return []gin.H{}
 }
 
 func (c *Config) xtreamStreamLive(ctx *gin.Context) {

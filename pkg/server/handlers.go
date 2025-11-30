@@ -140,9 +140,15 @@ func (c *Config) authenticate(ctx *gin.Context) {
 		ctx.AbortWithError(http.StatusBadRequest, err) // nolint: errcheck
 		return
 	}
-	if c.ProxyConfig.User.String() != authReq.Username || c.ProxyConfig.Password.String() != authReq.Password {
+	// Accetta sia "amici" che "amici_backup" con la stessa password
+	validUser := c.ProxyConfig.User.String() == authReq.Username || 
+		(c.ProxyConfig.User.String()+"_backup") == authReq.Username
+	if !validUser || c.ProxyConfig.Password.String() != authReq.Password {
 		ctx.AbortWithStatus(http.StatusUnauthorized)
+		return
 	}
+	// Salva l'username nel contesto per usarlo dopo
+	ctx.Set("authenticated_user", authReq.Username)
 }
 
 func (c *Config) appAuthenticate(ctx *gin.Context) {
@@ -162,9 +168,15 @@ func (c *Config) appAuthenticate(ctx *gin.Context) {
 		return
 	}
 	log.Printf("[iptv-proxy] %v | %s |App Auth\n", time.Now().Format("2006/01/02 - 15:04:05"), ctx.ClientIP())
-	if c.ProxyConfig.User.String() != q["username"][0] || c.ProxyConfig.Password.String() != q["password"][0] {
+	// Accetta sia "amici" che "amici_backup" con la stessa password
+	validUser := c.ProxyConfig.User.String() == q["username"][0] || 
+		(c.ProxyConfig.User.String()+"_backup") == q["username"][0]
+	if !validUser || c.ProxyConfig.Password.String() != q["password"][0] {
 		ctx.AbortWithStatus(http.StatusUnauthorized)
+		return
 	}
+	// Salva l'username nel contesto per usarlo dopo
+	ctx.Set("authenticated_user", q["username"][0])
 
 	ctx.Request.Body = ioutil.NopCloser(bytes.NewReader(contents))
 }

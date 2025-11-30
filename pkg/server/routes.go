@@ -58,17 +58,26 @@ func (c *Config) xtreamRoutes(r *gin.RouterGroup) {
 	r.GET("/player_api.php", c.authenticate, c.xtreamPlayerAPIGET)
 	r.POST("/player_api.php", c.appAuthenticate, c.xtreamPlayerAPIPOST)
 	r.GET("/xmltv.php", c.authenticate, c.xtreamXMLTV)
+	
+	// Route per utente normale
 	r.GET(fmt.Sprintf("/%s/%s/:id", c.User, c.Password), c.xtreamStreamHandler)
 	r.GET(fmt.Sprintf("/live/%s/%s/:id", c.User, c.Password), c.xtreamStreamLive)
 	r.GET(fmt.Sprintf("/timeshift/%s/%s/:duration/:start/:id", c.User, c.Password), c.xtreamStreamTimeshift)
 	r.GET(fmt.Sprintf("/movie/%s/%s/:id", c.User, c.Password), c.xtreamStreamMovie)
 	r.GET(fmt.Sprintf("/series/%s/%s/:id", c.User, c.Password), c.xtreamStreamSeries)
 	r.GET(fmt.Sprintf("/hlsr/:token/%s/%s/:channel/:hash/:chunk", c.User, c.Password), c.xtreamHlsrStream)
+	
+	// Route per utente backup (stesso comportamento ma con autenticazione diversa)
+	backupUser := fmt.Sprintf("%s_backup", c.User)
+	r.GET(fmt.Sprintf("/%s/%s/:id", backupUser, c.Password), c.xtreamStreamHandlerBackup)
+	r.GET(fmt.Sprintf("/live/%s/%s/:id", backupUser, c.Password), c.xtreamStreamLiveBackup)
+	r.GET(fmt.Sprintf("/timeshift/%s/%s/:duration/:start/:id", backupUser, c.Password), c.xtreamStreamTimeshiftBackup)
+	r.GET(fmt.Sprintf("/movie/%s/%s/:id", backupUser, c.Password), c.xtreamStreamMovieBackup)
+	r.GET(fmt.Sprintf("/series/%s/%s/:id", backupUser, c.Password), c.xtreamStreamSeriesBackup)
+	r.GET(fmt.Sprintf("/hlsr/:token/%s/%s/:channel/:hash/:chunk", backupUser, c.Password), c.xtreamHlsrStreamBackup)
+	
 	r.GET("/hls/:token/:chunk", c.xtreamHlsStream)
 	r.GET("/play/:token/:type", c.xtreamStreamPlay)
-	// Endpoint per backup.m3u
-	r.GET("/backup.m3u", c.authenticate, c.getBackupM3U)
-	r.POST("/backup.m3u", c.authenticate, c.getBackupM3U)
 }
 
 func (c *Config) m3uRoutes(r *gin.RouterGroup) {
